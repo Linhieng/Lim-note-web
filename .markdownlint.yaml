@@ -1,0 +1,6 @@
+MD007:
+  indent: 4
+
+MD040:
+  allowed_languages: [ 'html', 'css', 'js', 'ts', 'vue', 'react', 'text', 'sh', 'syntax' ]
+  language_only: true # 为 true 时，将不允许在语言后添加信息，比如 js start-line=2
