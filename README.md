@@ -2,9 +2,10 @@
 
 下面列出了这么多的内容，不代表每一个都会详细的在这里记录！大部分内容都应该是在官方文档中查看的。
 
-- 代码样式
+- 样式
     - [ESLint](https://eslint.org/)
     - [prettier](https://prettier.io/)
+    - [markdownlint](https://github.com/DavidAnson/markdownlint)
 - 测试
     - [Jest](https://jestjs.io/zh-Hans/)
     - [Testing Library](https://testing-library.com/)
