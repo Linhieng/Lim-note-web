@@ -1,6 +1,8 @@
 MD007:
   indent: 4
 
+MD013: false
+
 MD040:
   allowed_languages: [
     'html', 'css', 'js', 'ts', 'vue', 'react', 'jsx', 'json', 'jsonc',
