@@ -15,6 +15,7 @@
 - `// @ts-expect-error`
 - `/* eslint-disable */`
 - `/* eslint-enable */`
+- `// eslint-disable-line` 写在报错行后面
 
 ### App.vue 文件提示 `Parsing error: '>' expected`
 
