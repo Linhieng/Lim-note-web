@@ -11,7 +11,8 @@ Jest 主要还是提供了工具，具体的判断还是得自己手写测试逻
 ## 全局设定
 
 - `describe(name, fn)`'
-- `test(name, fn)` / `it(name, fn)`
+- `it(name, fn)`
+    - `test` 是 `it` 的别名，但似乎有这么一个约定俗成的习惯：`describe` 中的测试都是使用 `it`。成型的测试文件中一般不会用到 `test`。
 - `afterAll(fn, timeout?)`
 - `afterEach(fn, timeout?)`
 - `beforeAll(fn, timeout?)`
@@ -58,6 +59,92 @@ test('两个数组元素相同，长度相同。', () => {
 })
 ```
 
+## 异步测试
+
+- 错误案例
+
+    ```js
+    function fetchData(data) {
+        return new Promise((resolve) => {
+            setTimeout(() => {
+            resolve(data)
+            }, 1000)
+        })
+    }
+    test('测试异步函数', () => {
+        const data = 2
+        fetchData(data).then((data) => {
+            expect(data).toBe('2')
+        })
+    })
+    ```
+
+    运行上面代码，会发现 jest 测试结果是通过的。（虽然后面会提示错误，但那并不是我们期待的报错方式）
+
+- 正确案例 1: 返回一个 Promise
+
+    ```js
+    function fetchData(data) {
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                resolve(data)
+            }, 1000)
+        })
+    }
+    test('测试异步函数', () => {
+        const data = 2
+        return fetchData(data).then((data) => {
+            expect(data).toBe('2')
+        })
+    })
+    ```
+
+- 正确案例 2: 使用 async/await
+
+    ```js
+    function fetchData(data) {
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                resolve(data)
+            }, 1000)
+        })
+    }
+    test('测试异步函数', async () => {
+        const data = 2
+        await fetchData(data).then((data) => {
+            expect(data).toBe('2')
+        })
+    })
+    ```
+
+    这种使用方式，其实是返回一个 Promise 的语法糖。
+
+- 正确案例 3: 通过调用 `done()` 来测试异步函数
+
+    ```js
+    function fetchData(data) {
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                resolve(data)
+            }, 1000)
+        })
+    }
+    test('测试异步函数', (done) => {
+        const data = 2
+        fetchData(data).then((data) => {
+            console.log(done)
+            try {
+                expect(data).toBe('2')
+                done()
+            } catch (error) {
+                done(error)
+            }
+        })
+    })
+    ```
+
+    当使用了 `done` 参数后，测试将会等待 done 函数的调用，如果超过一定时间（6s）还没有调用 done，则会提出测试超时错误。
+
+    使用 done 时注意要通过 trycatch 包裹起来，因为测试出现错误时，将会抛出一个错误，这意味着后面的 done 将不会运行，所以最终只会提示超时错误，而不是具体的测试错误。
+
 ## Mock 模拟函数
-
-
