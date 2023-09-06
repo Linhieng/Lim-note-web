@@ -2,6 +2,39 @@
 
 简单的使用我已经熟悉了，所以这里暂时只记录一些遇到的案例
 
+## 未解决的需求
+
+- 变量需要在后面某个过程中才赋值，具体的类型也需要通过赋值才能确定，这种情况下如何提供类型支持
+
+    下面是案例代码，全部写在一起是可以获得 wrapper 和 numberField 的类型提示的。
+    但如果想要把 numberField 声明在 describe 里面，然后在 beforeAll 中初始化。
+    是否能够让 numberField 在初始化时定义类型，这样在 it 中使用时也可获得类型提示。
+
+    ```ts
+    import { mount } from '@vue/test-utils'
+
+    import JsonSchemaForm, { NumberField } from '../../lib'
+
+    describe('测试 SchemaForm', () => {
+        it('应该渲染出一个 NumberField 组件', async () => {
+            let value = 'hello'
+            const wrapper = mount(JsonSchemaForm, {
+                props: {
+                    schema: {
+                        type: 'number',
+                    },
+                    value,
+                    onChange: (v) => {
+                        value = v
+                    },
+                },
+            })
+            const numberField = wrapper.findComponent(NumberField)
+            expect(numberField.exists()).toBeTruthy()
+        })
+    })
+    ```
+
 ## 解决需求
 
 - 声明变量类型保持不变
