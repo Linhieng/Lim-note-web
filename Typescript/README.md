@@ -95,3 +95,67 @@
     }
 
     ```
+
+## 报错信息说明
+
+ts(2322) 都表示类型不匹配。
+
+ts 的报错信息展开时会发现是有缩进的，每一次缩进都是更加具体的类型错误的说明。
+
+### 案例一，开胃菜 `not assignable`
+
+这种是最容易理解的。
+
+- 复现代码：
+
+    ```ts
+    type SelectWeightDefine = {
+        value: string
+    }
+    const a: SelectWeightDefine = '123'
+    ```
+
+- 报错信息：
+
+    ```ts
+    Type 'string' is not assignable to type 'SelectWeightDefine'.
+    ```
+
+- 简单解释：该报错说的是类型 A 无法分配到类型 B 上面。
+
+### 案例二：`not assignable` + `incompatible` + `is missing .... but required`
+
+- 复现代码：
+
+    ```ts
+    type DefineComponentType = {
+        $props: { onChange: () => void }
+    }
+    const defineComponent = {
+        $props: {
+            value: 123,
+        },
+    }
+    const component: DefineComponentType = defineComponent
+
+    ```
+
+- 报错信息：
+
+    ```ts
+    Type '{ $props: { value: number; }; }' is not assignable to type 'DefineComponentType'.
+        Types of property '$props' are incompatible.
+            Property 'onChange' is missing in type '{ value: number; }' but required in type '{ onChange: () => void; }'.ts(2322)
+    ```
+
+- 分析：这只是从 vue 提取出来的一个简单示例，实际的报错提示中，每一个 Type 之间可能都还有很多信息，形式大概是下面这样
+
+    ```ts
+    Type 'defineComponent() 创建的组件类型' is not assignable to type 'DefineComponentType'.
+        Type `非常长的类型说明` is not assignable to type `非常长的类型说明`
+            Types of property '$props' are incompatible.
+                Type `非常长的类型说明` is not assignable to type `非常长的类型说明`
+                    Property 'onChange' is missing in type 'defineComponent() 中的 $props 类型' but required in type 'DefineComponentType 中的 $props 类型'
+    ```
+
+- 暂时不知道怎么复现出中间出现的那一串非常长的类型说明，但可以知道的是，一串更比一串长，因为太长了，整理起来都费劲，所以还没有整理，但我猜测应该是类型嵌套了很多层，每一层都是对类型的展开。
