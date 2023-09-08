@@ -5,7 +5,7 @@ MD013: false
 
 MD040:
   allowed_languages: [
-    'html', 'css', 'js', 'ts', 'vue', 'react', 'jsx', 'json', 'jsonc',
+    'html', 'css', 'js', 'ts', 'tsx', 'vue', 'react', 'jsx', 'json', 'jsonc',
     'py', 'java', 'c', 'cpp',
     'bat', 'ps1', 'sh', # 这些表示的是文件
     'shell',            # shell 表示的是命令行，包括 cmd, powershell, bash 中运行的命令
