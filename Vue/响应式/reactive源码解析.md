@@ -392,3 +392,143 @@ ownKeys(target: object): (string | symbol)[] {
     return Reflect.ownKeys(target)
 }
 ```
+
+## collectionHandler 简单理解
+
+源码在 `packages\reactivity\src\collectionHandlers.ts` 中。
+
+### mutableCollectionHandlers 类型
+
+调用 `reactive(target)` 时，如果 target 是 Map, Set, WeakMap, WeakSet 类型，则 `new Proxy(target, handle)` 时的 handler 会是 `mutableCollectionHandlers`
+
+mutableCollectionHandlers 的定义如下：
+
+```ts
+export const mutableCollectionHandlers: ProxyHandler<CollectionTypes> = {
+    get: /*#__PURE__*/ createInstrumentationGetter(false, false)
+}
+```
+
+可以发现它只有一个 `get`，这是因为集合类型的增删改查操作都是通过调用对应的方法来实现的，而这对于 proxy 来说，都是在 `get`，比如下面这样：
+
+```ts
+const map = reactive(new Map())
+// 添加或修改是通过调用 set(key, val) 方法实现的，所以触发的是 get，get 的内容是它的 set() 属性
+map.set('key', 'val')
+```
+
+### `createInstrumentationGetter()`
+
+```ts
+function createInstrumentationGetter(isReadonly: boolean, shallow: boolean) {
+  const instrumentations = shallow
+    ? isReadonly
+      ? shallowReadonlyInstrumentations
+      : shallowInstrumentations
+    : isReadonly
+    ? readonlyInstrumentations
+    : mutableInstrumentations
+
+  return (
+    target: CollectionTypes,
+    key: string | symbol,
+    receiver: CollectionTypes
+  ) => {
+    // 这里不用说了
+    if (key === ReactiveFlags.IS_REACTIVE) {
+      return !isReadonly
+    } else if (key === ReactiveFlags.IS_READONLY) {
+      return isReadonly
+    } else if (key === ReactiveFlags.RAW) {
+      return target
+    }
+    // target 就是原始的 map 或 set 等集合对象，而 key 就是这些对象上的方法
+    // 对于集合对象身上默认的一些方法，vue 做了代理，比如 get, set, has, delete 等等，这些都放在 instrumentations 里面
+    // 所以，如果用户调用的是这些方法，则 vue 会返回它处理过后的方法
+    return Reflect.get(
+      hasOwn(instrumentations, key) && key in target
+        ? instrumentations // 如果是 vue 处理的特殊属性，则返回 vue 处理的特殊属性，而不是从 target 身上返回
+        : target, // 如果不是 vue 处理的特殊属性，则直接在 target 身上返回对应的属性
+      key,
+      receiver
+    )
+  }
+}
+```
+
+案例：
+
+```tsx
+const map = new Map()
+Object.defineProperty(map, 'foo', {
+    value: () => 'bar'
+})
+const state = reactive(map)
+state.set('name', 'John') // get 的是 set 属性，最终调用的实际上是 instrumentations 上面的 set
+console.log(state.foo()) // 个体 的是 foo 属性，它不是 vue 特殊处理的属性，所以返回 target.foo()
+```
+
+### `createInstrumentations()`
+
+`instrumentations` 的是通过 `createInstrumentations` 进行创建的，我们这里只讨论 `mutableInstrumentations` 的创建过程，其他的只读、或 shallow 都是类似的。
+
+```ts
+function createInstrumentations() {
+  const mutableInstrumentations: Record<string, Function | number> = {
+    // 可以看到，vue 一共代理了 get, size, has, add, set, delete, clear, forEach 这几个属性。
+    // 这个函数很简单，因为具体的处理逻辑不在这里，而在“外面”，这里调用的只是对应的函数名罢了
+    get(this: MapTypes, key: unknown) {
+      return get(this, key)
+    },
+    get size() {
+      return size(this as unknown as IterableCollections)
+    },
+    has,
+    add,
+    set,
+    delete: deleteEntry,
+    clear,
+    forEach: createForEach(false, false)
+  }
+}
+```
+
+### `get()`
+
+```ts
+function get(
+    target: MapTypes,
+    key: unknown,
+    isReadonly = false,
+    isShallow = false
+) {
+    // #1772: readonly(reactive(Map)) should return readonly + reactive version
+    // of the value
+    target = (target as any)[ReactiveFlags.RAW];
+    const rawTarget = toRaw(target);
+    const rawKey = toRaw(key); // 集合类型的 key 可以是一个对象，所以它也可能是一个响应式，需要 toRaw
+    if (!isReadonly) {
+        // TODO: 举例子
+        if (hasChanged(key, rawKey)) {
+            // 如果是新的 key，则需要 track
+            track(rawTarget, TrackOpTypes.GET, key);
+        }
+        // rawKey 是始终会 track 的
+        track(rawTarget, TrackOpTypes.GET, rawKey);
+    }
+    // 这里获取的 has，就是原生的 has
+    const { has } = getProto(rawTarget);
+    // 我们会对返回的数据进行一个包装，如果是 shallow，则转换成 shallow；如果是 readonly，则转换成 readonly，都不是，则转换为 reactive
+    const wrap = isShallow ? toShallow : isReadonly ? toReadonly : toReactive;
+    if (has.call(rawTarget, key)) { // 判断一下 key 是否在 rawTarget 身上
+        return wrap(target.get(key));
+    } else if (has.call(rawTarget, rawKey)) {
+        return wrap(target.get(rawKey));
+    } else if (target !== rawTarget) {
+        // #3602 readonly(reactive(Map))
+        // ensure that the nested reactive `Map` can do tracking for itself
+        target.get(key);
+    }
+}
+
+```
