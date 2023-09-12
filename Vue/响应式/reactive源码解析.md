@@ -532,3 +532,169 @@ function get(
 }
 
 ```
+
+### `has`
+
+```ts
+// 注意这里的 this 参数是 ts 声明 this 类型的语法，并不是说需要第一个参数 this，类似 py 中的 self 参数
+function has(this: CollectionTypes, key: unknown, isReadonly = false): boolean {
+  const target = (this as any)[ReactiveFlags.RAW]
+  const rawTarget = toRaw(target)
+  const rawKey = toRaw(key)
+  if (!isReadonly) {
+    // has 经常用在判断中，这也是一种响应式，所以需要 track
+    if (hasChanged(key, rawKey)) {
+      track(rawTarget, TrackOpTypes.HAS, key)
+    }
+    track(rawTarget, TrackOpTypes.HAS, rawKey)
+  }
+  return key === rawKey
+    ? target.has(key) // 如果 key 和 rawKey 相同，则只需要通过原生 has 方法判断 target 上是否有 key
+    : target.has(key) || target.has(rawKey) // 如果不相同，则只需要 target 身上有 key 或者 rawKey 就可以了
+}
+```
+
+### `set`
+
+```ts
+function set(this: MapTypes, key: unknown, value: unknown) {
+  value = toRaw(value)
+  const target = toRaw(this)
+  const { has, get } = getProto(target)
+
+  let hadKey = has.call(target, key) // 判断是否有 key
+  if (!hadKey) {
+    key = toRaw(key)
+    hadKey = has.call(target, key) // 判断是否有 rawKey
+  } else if (__DEV__) {
+    checkIdentityKeys(target, has, key)
+  }
+
+  const oldValue = get.call(target, key)
+  target.set(key, value)
+  if (!hadKey) { // 既没有 key，也没有 rawKey 时，才是真正的没有该 key。 这个和 has 中的判断一样，需要判断两次
+    // 所以此时是新增一个 key
+    trigger(target, TriggerOpTypes.ADD, key, value)
+  } else if (hasChanged(value, oldValue)) {
+    trigger(target, TriggerOpTypes.SET, key, value, oldValue)
+  }
+  return this
+}
+```
+
+## ref 简单理解
+
+参考：js 中的类的 [get](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/get) 和 [set](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/set) 方法。
+
+ref 源代码相对而言比较简单：
+
+```ts
+function createRef(rawValue: unknown, shallow: boolean) {
+  if (isRef(rawValue)) {
+    return rawValue
+  }
+  return new RefImpl(rawValue, shallow)
+}
+```
+
+```ts
+class RefImpl<T> {
+  private _value: T
+  private _rawValue: T
+
+  public dep?: Dep = undefined
+  public readonly __v_isRef = true
+
+  constructor(
+    value: T,
+    public readonly __v_isShallow: boolean
+  ) {
+    this._rawValue = __v_isShallow ? value : toRaw(value)
+    this._value = __v_isShallow ? value : toReactive(value)
+    /*
+    // 可以看到，当 ref 接收的是对象时，ref 只不过是调用了 reactive
+    export const toReactive = <T extends unknown>(value: T): T =>
+      isObject(value) ? reactive(value) : value
+
+    */
+  }
+
+  // 当调用 ref.value 时，执行的就是这个函数
+  get value() {
+    // 因为我们需要调用 track 才能实现响应式，这就是为什么 ref 类型我们需要通过 .value 来调用。
+    trackRefValue(this)
+    return this._value
+  }
+
+  // 同理，调用 ref.value = newVal 时，执行的就是这个函数
+  set value(newVal) {
+    // 正是因为在这里面调用了 trigger，所以才会有响应式
+    const useDirectValue =
+      this.__v_isShallow || isShallow(newVal) || isReadonly(newVal)
+    newVal = useDirectValue ? newVal : toRaw(newVal)
+    if (hasChanged(newVal, this._rawValue)) {
+      this._rawValue = newVal
+      this._value = useDirectValue ? newVal : toReactive(newVal)
+      triggerRefValue(this, newVal)
+    }
+  }
+}
+```
+
+## computed 简单理解
+
+computed 的源代码也不难，只需要注意的就是 computed 和 ref 的区别在于，获取 computed 的值时，如果该值没有更新，则会直接返回旧的值，也就是缓存。这一实现机制是通过 `_dirty` 这个参数实现的。
+
+```ts
+export class ComputedRefImpl<T> {
+    public dep?: Dep = undefined;
+
+    private _value!: T;
+    public readonly effect: ReactiveEffect<T>;
+
+    public readonly __v_isRef = true;
+    public readonly [ReactiveFlags.IS_READONLY]: boolean = false;
+
+    public _dirty = true;
+    public _cacheable: boolean;
+
+    constructor(
+        getter: ComputedGetter<T>,
+        private readonly _setter: ComputedSetter<T>,
+        isReadonly: boolean,
+        isSSR: boolean
+    ) {
+        // 这里的 effect 和 trigger、track 紧密联系，先不用管。
+        this.effect = new ReactiveEffect(getter, () => {
+            if (!this._dirty) {
+                // 当 computed 中监听的值变化时，_dirty 参数就会为 true
+                // 或者说，当 computed 中的值更新时，vue 只会简单地将 _dirty 修改为 true，而不是去更新 computed 的值（.value）
+                this._dirty = true;
+                triggerRefValue(this);
+            }
+        });
+        this.effect.computed = this;
+        this.effect.active = this._cacheable = !isSSR;
+        this[ReactiveFlags.IS_READONLY] = isReadonly;
+    }
+
+    get value() {
+        // the computed ref may get wrapped by other proxies e.g. readonly() #3376
+        const self = toRaw(this);
+        trackRefValue(self);
+        // 当 _dirty 为 true 时，才会去重新获取新的值
+        if (self._dirty || !self._cacheable) {
+            self._dirty = false;
+            // 这也意味着，如果创建了一个 computed ，但却从来没有使用到它，那么当 computed 中依赖的响应值更新时，computed 返回的值也是不会更新的
+            // 因为 get 没有触发，该行代码也就不会被执行。
+            // 这样做的目的是提高性能。因为一个 computed 中可能依赖很多值，如果每一个响应值的更新都会触发 computed 的更新，那么性能是很差的。
+            self._value = self.effect.run()!;
+        }
+        return self._value;
+    }
+
+    set value(newValue: T) {
+        this._setter(newValue);
+    }
+}
+```
