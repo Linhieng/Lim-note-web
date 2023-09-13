@@ -698,3 +698,547 @@ export class ComputedRefImpl<T> {
     }
 }
 ```
+
+## watch 的简单理解
+
+### 简单使用
+
+- watch 的第一个参数可以是：
+    - 一个 getter 函数，返回一个值
+    - 一个 ref (包括计算属性)
+    - 一个响应式对象
+    - ...或是由以上类型的值组成的数组
+- watch 的第二个参数是在发生变化时要调用的回调函数。这个回调函数接受三个参数：
+    - 新值
+    - 旧值
+    - 以及一个用于注册副作用清理的回调函数。
+    该回调函数会在副作用下一次重新执行前调用，可以用来清除无效的副作用，例如等待中的异步请求。
+    当侦听多个来源时，回调函数接受两个数组，分别对应来源数组中的新值和旧值。
+- watch 的第三个参数是配置项：
+    - `immediate`：在侦听器创建时立即触发回调。第一次调用时旧值是 undefined。
+    - `deep`：如果源是对象，强制深度遍历，以便在深层级变更时触发回调。
+    - `flush`：调整回调函数的刷新时机。
+        - `pre` 默认，在渲染函数执行前调用
+        - `post` 在渲染函数执行后调用，此时才可以获取最新的 DOM
+        - `sync` 与渲染函数同步调用。谨慎使用。
+        - 渲染函数的调用，就是组件的更新。
+    - `onTrack` / `onTrigger`：可以用于调试。仅在开发环境下生效
+
+至于 `watchEffect`, `watchPostEffect`, `watchSyncEffect`，它们只是 watch 的特殊情况，区别只在于
+
+- 它们的第一个参数就是要执行的副作用函数
+- 它们没有 cb 函数
+- 它们的 flush 分别是 `pre`（默认），`post` 和 `sync`
+
+### 源代码在 `packages\runtime-core\src\apiWatch.ts` 中
+
+`watchEffect`, `watchPostEffect`, `watchSyncEffect` 都只是 watch 的一种特殊情况，他们调用的都是 `doWatch`
+
+```ts
+export function watchEffect(
+    effect: WatchEffect,
+    options?: WatchOptionsBase
+): WatchStopHandle {
+    return doWatch(effect, null, options); // options.flush 默认为 pre
+}
+
+export function watchPostEffect(
+    effect: WatchEffect,
+    options?: DebuggerOptions
+) {
+    return doWatch(
+        effect,
+        null,
+        __DEV__
+            ? extend({}, options as any, { flush: "post" })
+            : { flush: "post" }
+    );
+}
+
+export function watchSyncEffect(
+    effect: WatchEffect,
+    options?: DebuggerOptions
+) {
+    return doWatch(
+        effect,
+        null,
+        __DEV__
+            ? extend({}, options as any, { flush: "sync" })
+            : { flush: "sync" }
+    );
+}
+
+export function watch<T = any, Immediate extends Readonly<boolean> = false>(
+    source: T | WatchSource<T>,
+    cb: any,
+    options?: WatchOptions<Immediate>
+): WatchStopHandle {
+    if (__DEV__ && !isFunction(cb)) {
+        warn(
+            `\`watch(fn, options?)\` signature has been moved to a separate API. ` +
+                `Use \`watchEffect(fn, options?)\` instead. \`watch\` now only ` +
+                `supports \`watch(source, cb, options?) signature.`
+        );
+    }
+    return doWatch(source as any, cb, options);
+}
+```
+
+### doWatch
+
+doWatch 源代码比较长，这里就只提取出核心内容。先简单理解。
+
+```ts
+function doWatch(
+    source: WatchSource | WatchSource[] | WatchEffect | object,
+    cb: WatchCallback | null,
+    { immediate, deep, flush, onTrack, onTrigger }: WatchOptions = EMPTY_OBJ
+): WatchStopHandle {
+    /* ... */
+
+    // instance 获取当前活跃的 effect 作用域。
+    const instance =
+        getCurrentScope() === currentInstance?.scope ? currentInstance : null
+
+    let getter: () => any
+    // 然后就是一系列判断语句，核心就是在为 getter 赋值，目的是能够通过 getter 来获取需要侦听的响应值
+    // 下面是提取处理的伪代码
+    if (isRef(source)) {
+        getter = () => source.value; // 第一个参数是 ref 就返回 .value，这样才会触发响应。
+                                    // 这里也说明了为什么侦听时传入的应该是一个 ref，而不能是 ref.value
+    } else if (isReactive(source)) {
+        getter = () => source; // 第一个参数是响应对象，就返回响应对象
+    } else if (isArray(source)) {
+        getter = () => source.map((s) => {/* ... */}); // 是一个数组，无非就是遍历，然后返回他们的响应值
+    } else if (isFunction(source)) {
+        // callWithErrorHandling 的的功能也只是用来执行 source 函数，从而获取响应值罢了。
+        // callWithErrorHandling 的工作就是在 try catch 中调用 source()，然后收集了一些错误信息之类的。这样就不怕报错。
+        getter = () => callWithErrorHandling(source /* ... */);
+    } else {
+        // 如果是不支持的类型，而不会侦听
+        getter = NOOP;
+    }
+
+    /* ....
+        后面还有一些代码会对 getter 赋值，但目的都是一样的。
+        比如当 deep 为 true 时，会调用 traverse 函数。
+        traverse 函数的作用就是递归遍历响应式对象，然后将响应值放在一起返回（广度优先遍历）。
+    */
+
+    // job 理解为任务、责任。也就是需要执行的副作用，这是“调度”所执行的工作
+    const job: SchedulerJob = () => {/* ... */}
+    // scheduler 是调度函数，用于确定副作用函数的执行时机
+    let scheduler: EffectScheduler
+    if (flush === 'sync') {
+        // 如果是同步，则直接调用 job
+        scheduler = job as any // the scheduler function gets called directly
+    } else if (flush === 'post') {
+        // 如果是 post，则将其推进 post 队列中，当组件更新后将会依次执行完 post 队列中的所有 job（effect）
+        scheduler = () => queuePostRenderEffect(job, instance && instance.suspense)
+    } else {
+        // 默认是 pre，所以将其推荐 pre 队列中，在组件更新前将会执行完 queueJob 中的所有 job
+        scheduler = () => queueJob(job)
+    }
+
+    // 剩下的代码，核心就是 effect，该 effect 是一个对象，这是响应式的核心。他主要有一个 run 方法，用来执行对应的 job
+    // effect.run() 在以前是写成 runner() 的。
+    // run() 正常的返回值就其实就是 getter() 的执行结果，之所以在 run() 中调用 getter() 的目的是要做一些其他操作。
+    // 总之，如果忽略掉其他细节，effect.run() 基本等同于 getter()
+    const effect = new ReactiveEffect(getter, scheduler)
+    // initial run
+    if (cb) {
+        if (immediate) {
+            // 如果是立即执行，则直接调用 job 了，不需要通过 effect 去运行
+            job()
+        } else {
+            oldValue = effect.run()
+        }
+    } else if (flush === 'post') {
+        // 如果是 post，同样会放入 post 队列中
+        queuePostRenderEffect(
+            effect.run.bind(effect),
+            instance && instance.suspense
+        )
+    } else {
+        // 不需要放入 post 队列中，而是直接执行 getter()
+        effect.run()
+    }
+
+    /* 剩下的代码就是创建一个 unwatch 然后返回，当调用 unwatch 时，effect.stop() 就会被调用，从而取消侦听 */
+}
+```
+
+## 响应式核心 effect、trace、trigger 简单认识
+
+### 由 `ReactiveEffect` 引出 track
+
+effect 重点就是 `ReactiveEffect` 类。
+
+```ts
+export class ReactiveEffect<T = any> {
+    /* ... */
+    /*
+        ReactiveEffect 只有两个方法：run 和 stop
+        当停止侦听时，调用的就是 stop
+        构造函数会为 fn 和 scheduler 赋值
+        还有一个 scope 为可选值，暂时不用管
+    */
+    constructor(
+        public fn: () => T,
+        public scheduler: EffectScheduler | null = null,
+        scope?: EffectScope
+    ) {
+        recordEffectScope(this, scope)
+    }
+
+    // 我们核心放在 run 函数中
+    // run 的返回值就是调用了 fn 函数，fn 函数会获取我们的响应值，也就是说它会触发我们对响应值代理。而这就涉及到 track 和 trigger 了
+    run() {
+        if (!this.active) { // active 初始值是 true。当调用了 stop 时，active 就会变成 false
+            // 如果不是 active 的，那么就直接调用 fn 函数了，也就是不会做其他处理了
+            // fn 函数就是前面的 getter，调用后的返回值就是所侦听的响应值。
+            return this.fn();
+        }
+        // 后面先不看
+        let parent: ReactiveEffect | undefined = activeEffect;
+        let lastShouldTrack = shouldTrack;
+        while (parent) {
+            if (parent === this) {
+                return;
+            }
+            parent = parent.parent;
+        }
+        try {
+            this.parent = activeEffect;
+            activeEffect = this;
+            shouldTrack = true;
+
+            trackOpBit = 1 << ++effectTrackDepth;
+
+            if (effectTrackDepth <= maxMarkerBits) {
+                initDepMarkers(this);
+            } else {
+                cleanupEffect(this);
+            }
+            return this.fn();
+        } finally {
+            if (effectTrackDepth <= maxMarkerBits) {
+                finalizeDepMarkers(this);
+            }
+
+            trackOpBit = 1 << --effectTrackDepth;
+
+            activeEffect = this.parent;
+            shouldTrack = lastShouldTrack;
+            this.parent = undefined;
+
+            if (this.deferStop) {
+                this.stop();
+            }
+        }
+    }
+}
+
+```
+
+### [响应式工作原理](https://cn.vuejs.org/guide/extras/reactivity-in-depth.html#how-reactivity-works-in-vue)
+
+当 get 一个响应值时，就会触发执行 track。当 set 一个响应值时，就会触发 trigger。
+
+```js
+// 这里的代码旨在以最简单的形式解释核心概念，因此省略了许多细节和边界情况。
+
+function reactive(obj) {
+    return new Proxy(obj, {
+        get(target, key) {
+            track(target, key);
+            return target[key];
+        },
+        set(target, key, value) {
+            target[key] = value;
+            trigger(target, key);
+        },
+    });
+}
+
+function ref(value) {
+    const refObject = {
+        // 仅有 ref 使用 getter / setter。
+        // Vue 2 中使用 getter / setters 完全是出于支持旧版本浏览器的限制。因为 Proxy 是全新的语言特性，无法在 ES6 之前实现。
+        get value() {
+            // 对于 ref，它的 target 上的 key 就是 "value"
+            track(refObject, "value");
+            return value;
+        },
+        set value(newValue) {
+            value = newValue;
+            trigger(refObject, "value");
+        },
+    };
+    return refObject;
+}
+```
+
+`track()` 内部的核心就是检查是否有正在运行的副作用。如果有，我们会查找到一个存储了所有追踪了该属性的订阅者的 Set，然后将当前这个副作用作为新订阅者添加到该 Set 中。
+
+```js
+function track(target, key) {
+    if (activeEffect) {
+        // getSubscribersForProperty 的工作就是，当第一次 track 时，还没有 set，此时会创建一个 set
+        const effects = getSubscribersForProperty(target, key)
+        // 然后将当前正在运行的副作用添加进去到属于该 target.key 的 set 中。
+        effects.add(activeEffect)
+    }
+}
+```
+
+`trigger()` 内部的核心就是执行所有订阅了该属性（target.key）的副作用。
+
+```js
+function trigger(target, key) {
+    const effects = getSubscribersForProperty(target, key)
+    // 执行每一个副作用
+    effects.forEach((effect) => effect())
+}
+```
+
+举个例子如下：
+
+```js
+// 伪代码
+let A0 = ref(1)
+let A1 = ref(2)
+let A2
+
+// whenDepsChange 的作用就是，当 update 函数中依赖的值发生变化时，会重新执行 update 函数
+// 这基本就是 vue 中 watch 的原理
+function update() {
+  A2 = A0.value + A1.value
+}
+function whenDepsChange(update) {
+    const effect = () => {
+        // update 会包含在一个副作用函数中
+        // 在运行 update 之前，它会将该副作用函数注册到侦听的属性的订阅者 set 中
+        activeEffect = effect
+        update()
+        activeEffect = null
+    }
+    // 调用 effect()
+    effect()
+}
+```
+
+1. `whenDepsChange` 内部调用 effect() 时，`A0.value` 会被 get，所以 `get value()` 中的 `track(A0, "value")` 会被触发
+2. `track` 中将 activeEffect(= effect) 添加到订阅者 set 中。
+3. 当更改 `A0.value` 时，会执行 `set value()` 中的 `trigger(A0, "value")`
+4. `trigger` 中会调用所有订阅了 `A0.value` 的订阅者的副作用函数，所以 `effect()` 函数会被再次执行，此时 `update()` 也随之执行。
+
+### 对应到源码
+
+`activeEffect` 是 `effect.ts` 中的全局变量，在执行 `effect.run()` 的过程中会被赋值。
+
+```ts
+/**
+ * Tracks access to a reactive property.
+ *
+ * This will check which effect is running at the moment and record it as dep
+ * which records all effects that depend on the reactive property.
+ *
+ * @param target - Object holding the reactive property.
+ * @param type - Defines the type of access to the reactive property.
+ * @param key - Identifier of the reactive property to track.
+ */
+export function track(target: object, type: TrackOpTypes, key: unknown) {
+    if (shouldTrack && activeEffect) {
+        // 这里的 map 是 target 身上所有的 key 的 map
+        let depsMap = targetMap.get(target);
+        if (!depsMap) {
+            // 第一次调用 target 的第一个 key 时，会初始化 map
+            targetMap.set(target, (depsMap = new Map()));
+        }
+        let dep = depsMap.get(key);
+        if (!dep) {
+            // 这里就和前面的 getSubscribersForProperty(target, key) 是一样的
+            // 会创建一个新的订阅了该 target.key 的 set 集合。
+            depsMap.set(key, (dep = createDep()));
+        }
+
+        const eventInfo = __DEV__
+            ? { effect: activeEffect, target, type, key }
+            : undefined;
+
+        trackEffects(dep, eventInfo);
+    }
+}
+
+export function trackEffects(
+    dep: Dep,
+    debuggerEventExtraInfo?: DebuggerEventExtraInfo
+) {
+    let shouldTrack = false;
+    if (effectTrackDepth <= maxMarkerBits) {
+        if (!newTracked(dep)) {
+            dep.n |= trackOpBit; // set newly tracked
+            shouldTrack = !wasTracked(dep);
+        }
+    } else {
+        // Full cleanup mode.
+        shouldTrack = !dep.has(activeEffect!);
+    }
+
+    if (shouldTrack) {
+        // 这里就是前面的 effects.add(activeEffect) 了
+        // activeEffect 的值是全局的（effect.ts），当执行 run() 的过程中就对其赋值了。
+        dep.add(activeEffect!);
+        activeEffect!.deps.push(dep);
+        if (__DEV__ && activeEffect!.onTrack) {
+            activeEffect!.onTrack(
+                extend(
+                    {
+                        effect: activeEffect!,
+                    },
+                    debuggerEventExtraInfo!
+                )
+            );
+        }
+    }
+}
+
+```
+
+trigger 代码相对较多，主要是 trigger 中获取 deps，然后传递给 triggerEffects，最终再传到 triggerEffect 中进行调用。
+
+```ts
+/**
+ * Finds all deps associated with the target (or a specific property) and
+ * triggers the effects stored within.
+ *
+ * @param target - The reactive object.
+ * @param type - Defines the type of the operation that needs to trigger effects.
+ * @param key - Can be used to target a specific reactive property in the target object.
+ */
+export function trigger(
+    target: object,
+    type: TriggerOpTypes,
+    key?: unknown,
+    newValue?: unknown,
+    oldValue?: unknown,
+    oldTarget?: Map<unknown, unknown> | Set<unknown>
+) {
+    const depsMap = targetMap.get(target);
+    if (!depsMap) {
+        // never been tracked
+        return;
+    }
+
+    let deps: (Dep | undefined)[] = [];
+    if (type === TriggerOpTypes.CLEAR) {
+        // collection being cleared
+        // trigger all effects for target
+        deps = [...depsMap.values()];
+    } else if (key === "length" && isArray(target)) {
+        const newLength = Number(newValue);
+        depsMap.forEach((dep, key) => {
+            if (key === "length" || key >= newLength) {
+                deps.push(dep);
+            }
+        });
+    } else {
+        // schedule runs for SET | ADD | DELETE
+        if (key !== void 0) {
+            deps.push(depsMap.get(key));
+        }
+
+        // also run for iteration key on ADD | DELETE | Map.SET
+        switch (type) {
+            case TriggerOpTypes.ADD:
+                if (!isArray(target)) {
+                    deps.push(depsMap.get(ITERATE_KEY));
+                    if (isMap(target)) {
+                        deps.push(depsMap.get(MAP_KEY_ITERATE_KEY));
+                    }
+                } else if (isIntegerKey(key)) {
+                    // new index added to array -> length changes
+                    deps.push(depsMap.get("length"));
+                }
+                break;
+            case TriggerOpTypes.DELETE:
+                if (!isArray(target)) {
+                    deps.push(depsMap.get(ITERATE_KEY));
+                    if (isMap(target)) {
+                        deps.push(depsMap.get(MAP_KEY_ITERATE_KEY));
+                    }
+                }
+                break;
+            case TriggerOpTypes.SET:
+                if (isMap(target)) {
+                    deps.push(depsMap.get(ITERATE_KEY));
+                }
+                break;
+        }
+    }
+
+    const eventInfo = __DEV__
+        ? { target, type, key, newValue, oldValue, oldTarget }
+        : undefined;
+
+    if (deps.length === 1) {
+        if (deps[0]) {
+            if (__DEV__) {
+                triggerEffects(deps[0], eventInfo);
+            } else {
+                triggerEffects(deps[0]);
+            }
+        }
+    } else {
+        const effects: ReactiveEffect[] = [];
+        for (const dep of deps) {
+            if (dep) {
+                effects.push(...dep);
+            }
+        }
+        if (__DEV__) {
+            triggerEffects(createDep(effects), eventInfo);
+        } else {
+            triggerEffects(createDep(effects));
+        }
+    }
+}
+
+// 这个函数就相当于 effects.forEach((effect) => effect()) 中的 forEach。
+export function triggerEffects(
+    dep: Dep | ReactiveEffect[],
+    debuggerEventExtraInfo?: DebuggerEventExtraInfo
+) {
+    // spread into array for stabilization
+    const effects = isArray(dep) ? dep : [...dep];
+    for (const effect of effects) {
+        if (effect.computed) {
+            triggerEffect(effect, debuggerEventExtraInfo);
+        }
+    }
+    for (const effect of effects) {
+        if (!effect.computed) {
+            triggerEffect(effect, debuggerEventExtraInfo);
+        }
+    }
+}
+
+function triggerEffect(
+    effect: ReactiveEffect,
+    debuggerEventExtraInfo?: DebuggerEventExtraInfo
+) {
+    if (effect !== activeEffect || effect.allowRecurse) {
+        if (__DEV__ && effect.onTrigger) {
+            effect.onTrigger(extend({ effect }, debuggerEventExtraInfo));
+        }
+        // 在这里，就是相当于前面的执行副作用。也就是 effects.forEach((effect) => effect()) 中的 effect()
+        if (effect.scheduler) {
+            effect.scheduler();
+        } else {
+            effect.run();
+        }
+    }
+}
+
+```
