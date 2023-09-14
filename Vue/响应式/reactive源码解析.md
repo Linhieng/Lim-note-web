@@ -730,6 +730,24 @@ export class ComputedRefImpl<T> {
 - 它们没有 cb 函数
 - 它们的 flush 分别是 `pre`（默认），`post` 和 `sync`
 
+`watch` 的回调函数中（或 `watchEffect` 的第一个回调函数）有一个 `onCleanup` 参数，它的作用是“消除副作用”。使用案例如下：
+
+```js
+watchEffect((onCleanup) => {
+    // 当我们的 id.value 变化时，performAsyncOperation 会去更新页面上的一些内容
+    const token = performAsyncOperation(id.value)
+    onCleanup(() => {
+        // 考虑这么一种场景：由于网络原因，先前的 performAsyncOperation 还未执行完
+        // 此时 id.value 由再次更新了，所以会再次执行 performAsyncOperation
+        // 但新的 performAsyncOperation 速度很快，于是页面上的内容一下就更新成最新的了
+        // 但此时旧的 performAsyncOperation 还在继续运行，如果不取消它，那么当旧的响应数据回来时，会再次更新页面，此时会导致页面被旧的内容覆盖
+        // 所以，当我们执行新的 performAsyncOperation 时，我们希望取消旧的 performAsyncOperation
+        // 这就是消除副作用。Side Effect Invalidation。这个案例官方长应该是有的，但不知为何现在找不到
+        token.cancel()
+    })
+})
+```
+
 ### 源代码在 `packages\runtime-core\src\apiWatch.ts` 中
 
 `watchEffect`, `watchPostEffect`, `watchSyncEffect` 都只是 watch 的一种特殊情况，他们调用的都是 `doWatch`
@@ -1036,6 +1054,11 @@ function whenDepsChange(update) {
 ### 对应到源码
 
 `activeEffect` 是 `effect.ts` 中的全局变量，在执行 `effect.run()` 的过程中会被赋值。
+
+> 说明：
+>
+> `shouldTrack` 是 `effect.ts` 中的全局变量。因为某些作用域不应该被跟踪，比如 `setup` 函数。所以当作用域是 setup 函数时，`shouldTrack` 就会为 `false`。
+> 在 `setup` 函数中，可能有多个 `watch` 函数，每次执行 `watch` 中的代码，`shouldTrack` 都会为 `true`，但执行完后作用域会回到 `setup`，此时的 `shouldtrack` 会变为 `false`。所以 `shouldTrack` 会一直变来变去，源码中有关 `shouldTrack` 的代码基本都是这个目的。
 
 ```ts
 /**
