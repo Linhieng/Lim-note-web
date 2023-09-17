@@ -424,3 +424,405 @@ export const greeting = derived(name, ($name) => `Hello ${$name}!`);
     Add exclamation mark!
 </button>
 ```
+
+## `svelte/motion`
+
+`svelte/motion` 模块提供两个函数 `tweened(value, options)` 和 `spring(value, options)`，这两个函数可以用来创建可写的状态。
+
+- `tweened` 可以在状态变化的过程中插入值，从而改变状态变化的效果，可以让它看起来更加顺滑。效果上类似于 css 的过渡。可以有四个配置项：
+    - `delay`，推迟变化时间
+    - `duration`，变化持续时间
+    - `easing`
+    - `interpolate`，接收一个 (fr, to) => () => insert 结构的参数。状态的变化将只会是 fr --> insert --> to。此时的 easing 参数无效。
+- `spring` 和 `tweened` 类似，但它更适合经常变化的状态，比如鼠标坐标之类的信息。`spring()` 可以有三个配置项：
+    - `stiffness`，默认值是 0.15，数值越大效果越生硬、灵敏
+    - `damping`，默认值 0.8，数值越大惯性越强，越难“平静”下来
+    - `precision`，默认值 0.001，用于控制上面两个参数的运动幅度大小
+
+```svelte
+<script>
+    import { tweened } from 'svelte/motion';
+    import { elasticOut } from "svelte/easing"
+
+    // tweened 返回一个 store。store 有两个方法 set 和 update，接收的参数和 tweened 一样。
+    // 当 store.set / store.update 提供第二个参数时，将会覆盖 tweened 的第二个参数。
+    const progress = tweened(0, {
+        // 第二个参数是支持下面四个配置项
+        delay: 100,
+        duration: 400,
+        easing: elasticOut,
+        // interpolate: (fr, to) => () => (to+fr)/2
+    });
+
+</script>
+
+<progress value={$progress} />
+
+{#each [0, 0.25, 0.5, 0.75, 1] as segment (segment)}
+    <button on:click={() => progress.set(segment)}>
+        {segment * 100}%
+    </button>
+{/each}
+
+<style>
+    progress {
+        display: block;
+        width: 100%;
+    }
+    button {
+        margin-left: 10px;
+    }
+</style>
+```
+
+[spring 案例](https://learn.svelte.dev/tutorial/springs)
+
+## `svelte/transition`
+
+`svelte/motion` 模块可以让状态的变化有“过渡”效果。但它并不适合元素的过渡（杀鸡焉用牛刀）。而 `svelte/transition` 是专门为元素提供的过渡，使用起来非常方便
+
+### 基本使用
+
+```svelte
+<script>
+    import { fade, fly, slide } from "svelte/transition"
+    let visible = true;
+</script>
+
+<button on:click={() => visible = !visible}>toggle visible</button>
+
+{#if visible}
+    <p transition:fade={{duration: 2000}}>
+        Fades in and out
+    </p>
+    <p transition:fly={{duration: 2000}}>
+        Flies in and out
+    </p>
+    <p transition:slide={{duration: 2000}}>
+        Slides in and out
+    </p>
+    <p in:slide
+        out:fly={{ x: 300, y: -100, duration: 2000 }}
+    >
+        Slides In, flies out
+    </p>
+{/if}
+```
+
+`scale` 使用时，元素的位置不同，效果也将不同。
+
+```svelte
+<script>
+    import { scale } from "svelte/transition"
+    let visible = true;
+</script>
+
+<button on:click={() => visible = !visible}>toggle visible</button>
+
+{#if visible}
+    <p transition:scale={{start:0.2, duration: 2000}}>
+            Scale in and out
+    </p>
+    <div class="container">
+        <p transition:scale={{start:0.2, duration: 2000}}>
+                Scale in and out
+        </p>
+    </div>
+{/if}
+
+<style>
+    .container {
+        height: 80vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+</style>
+```
+
+`draw` 只能应用在拥有 getTotalLength 方法的元素上，一般是 svg 中的元素才有该方法，如 `<path>`。
+
+```svelte
+<script>
+  import { draw } from "svelte/transition";
+  let visible = true;
+</script>
+
+<button on:click={() => (visible = !visible)}>
+  {visible ? "wipe" : "draw"}
+</button>
+<br />
+{#if visible}
+  <svg viewBox="0 0 210 210" width="200" height="200">
+    <polygon
+      transition:draw
+      points="100,10 40,198 190,78 10,78 160,198"
+      fill="none"
+      stroke="purple"
+      stroke-width="5"
+      stroke-linecap="round"
+    />
+  </svg>
+{/if}
+```
+
+### 自定义过渡
+
+前面的 fade、fly 本质上就是一个函数，比如 fade 的实现如下：
+
+```js
+function fade(node, { delay = 0, duration = 400 }) {
+    const o = +getComputedStyle(node).opacity;
+
+    return {
+        delay,
+        duration,
+        css: t => `opacity: ${t * o}`
+    };
+}
+```
+
+基于此，我们也可以实现自己的过渡函数。过渡函数接收两个参数：
+
+- `node`，表示过渡将应用的节点
+- `params` 表示接收的参数，可以是任意值，但如果标签没有传递参数，则默认是一个空对象。
+
+过渡函数需要返回一个过渡对象，该对象可以有以下属性值：
+
+- `delay`
+- `duration`
+- `easing`，接收一个 `p => t` 函数
+- `css`，接收一个 `(t, u) => cssString` 函数。
+- `tick`，接收一个 `(t, u) => {...}` 函数
+
+其中的 `t` 参数为 0 时表示过渡 in 的开始，out 的结束，为 1 时表示过渡 in 的结束，out 的开始。`u` 参数始终等于 `1 - t`。
+
+`css` 和 `tick` 只能返回一个，大部分情况下应该使用 `css` 属性，因为 css 最终将会创建一个 css 动画。而 `tick` 会利用 js 对 `node` 进行操作实现对应的效果（产生 effect），如果操作不当可能会导致卡顿。
+
+```svelte
+<script>
+    import { fade } from 'svelte/transition';
+    import { elasticOut } from "svelte/easing"
+
+    let visible = true;
+
+    function customTransition(node, { duration=500 }) {
+        return {
+            duration,
+            css: (t) => {
+                const eased = elasticOut(t)
+                return `
+                    transform: scale(${eased}) rotate(${eased * 1080}deg);
+                    color: hsl(
+                        ${Math.trunc(t * 360)},
+                        ${Math.min(100, 100 * (1 - t))}%,
+                        ${Math.min(50, 500 * (1 - t))}%
+                    );
+                `
+            }
+        };
+    }
+</script>
+
+<button on:click={() => visible = !visible}>toggle visible</button>
+
+{#if visible}
+    <div
+        class="centered"
+        in:customTransition={{ duration: 1000 }}
+        out:fade
+    >
+        <span>transitions!</span>
+    </div>
+{/if}
+
+<style>
+    .centered {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    span {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        font-size: 4em;
+    }
+</style>
+```
+
+当 css 动画无法实现需求时，可能考虑使用 `tick`，比如实现“打字机”效果。
+
+```svelte
+<script>
+    let visible = false;
+
+    function typewriter(node, { speed = 1 }) {
+        const valid = node.childNodes.length === 1 && node.childNodes[0].nodeType === Node.TEXT_NODE;
+
+        if (!valid) {
+            throw new Error(`This transition only works on elements with a single text node child`);
+        }
+
+        const text = node.textContent;
+        const duration = text.length / (speed * 0.01);
+
+        function tick(t) {
+            const i = Math.trunc(text.length * t);
+            node.textContent = text.slice(0, i);
+        }
+
+        return {duration, tick};
+    }
+</script>
+
+<button on:click={() => visible = !visible}>
+    {visible ? 'delete' : 'type'}
+</button>
+
+{#if visible}
+    <p in:typewriter out:typewriter={{speed: 10}} >
+        The quick brown fox jumps over the lazy dog.
+    </p>
+{/if}
+```
+
+### 过渡的生命周期
+
+和事件的使用方式一样
+
+- `introstart`
+- `outrostart`
+- `introend`
+- `outroend`
+
+### global 和 local
+
+Svelte3 版本中，默认是 global，Svelte4 版本中默认是 local。
+
+global 和 local 的源码是如何实现的呢？
+
+他们的区别可以查看该 [案例](https://learn.svelte.dev/tutorial/global-transitions)
+
+### `{#key expression}`
+
+过渡默认只会在元素卸载和挂载时时应用动画，但有时候当元素内容变化时，我们也希望有过渡效果，这个使用就可以使用 `{#key expression}`。
+
+被 `{#key expression}` 包含的元素中的过渡，其触发时机不再是添加和删除，而是根据 `expression` 的值。当它变化时，就会触发过渡。
+
+```svelte
+<script>
+    import { scale } from "svelte/transition"
+
+    const fruits = [ "apple", "banner", "orange" ];
+    let i = 0
+
+    setInterval(() => {
+        i = (i + 1) % fruits.length;
+    }, 1000);
+</script>
+
+<!-- 当 i 变化时，scale 就会应用。与 p 元素无关  -->
+{#key i}
+    <p in:scale>
+        {fruits[i] || ''} <!-- 即使这里写成一个固定字符，当 i 变化时依旧会添加过渡 -->
+    </p>
+{/key}
+```
+
+### 延迟过渡
+
+`svelte/transition` 提供一个 `crossfade` 函数来实现延时过渡。
+
+```js
+const [send, receive] = crossfade({
+    fallback, // 一个过渡函数，当没有找到 receive 时将应用该过渡函数
+    delay,
+    duration,
+    easing,
+})
+```
+
+`crossfade()` 返回一对[过渡函数](https://svelte.dev/docs/element-directives#transition-fn)，我们称其为 `send` 和 `receive`。
+
+`send` 和 `receive` 支持一个 key 参数，它的作用应该是标识当前元素。比如 TodoList 中，将 todo 项移到 done 项时，我们认为这两项是同一项，但实际上是删除了 todo 项元素，然后再创建一个 done 项。因为两个元素的内存地址是不一样的，这个时候就需要通过一个 key 来标识他们，如果 key 相同，则认为他们是同一项。（~~有点哲学的味道，忒修斯之船、重启咲良田~~）
+
+下面的案例，只是为了说明 key 的作用。
+
+TODO: 快速双击按钮，会报错 `Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'tick')`。暂时不清楚是不是 bug，先放在，如果是 bug，也许我可以自己查看 svelte 的源码，然后提一个 PR（~~想想就热血澎湃~~）
+
+```svelte
+<script>
+    import { crossfade } from 'svelte/transition';
+    import { quintOut } from 'svelte/easing';
+
+    let condition = true
+    let key = '1'
+    const [send, receive] = crossfade({
+        duration: 1000,
+        easing: quintOut
+    });
+</script>
+
+<button on:click={() => condition = !condition}>toggle</button>
+
+<div class="board">
+    <div class="A">
+        {#if condition}
+            <p in:send out:receive >true</p>
+            <p in:send out:receive >true</p>
+            <p in:send out:receive >true</p>
+            <!-- 当消失时，它会寻找 in:send 的 key 和它相同的那一项，然后将两者认为是同一项 -->
+            <p in:send out:receive={{key}} >true✨</p>
+            <p in:send out:receive >true</p>
+        {/if}
+    </div>
+    <div class="B">
+        {#if !condition}
+            <p in:send out:receive >FALSE</p>
+            <p in:send out:receive >FALSE</p>
+            <p in:send out:receive >FALSE</p>
+            <p in:send={{key}} out:receive >FALSE✨</p>
+            <p in:send out:receive >FALSE</p>
+        {/if}
+    </div>
+</div>
+
+<style>
+    .board {
+        width: 400px;
+        margin: 100px auto;
+        box-shadow: 0 0 4px 0 #ccc;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-column-gap: 1em;
+        justify-items: center;
+    }
+</style>
+```
+
+```svelte
+<!-- 将代码替换成下面这样，就能正常工作了。 -->
+<div class="board">
+    <div class="A">
+        {#if condition}
+            <!-- TODO: 如果使用 #each 创建，则完全没有过渡效果
+                {#each items as item (item)}
+                    <p in:send={{ key: item }} out:receive={{ key: item }}>{item}</p>
+                {/each}
+             -->
+            <p in:send={{key:1}} out:receive={{key:1}} >1</p>
+            <p in:send={{key:2}} out:receive={{key:2}} >2</p>
+            <p in:send={{key:3}} out:receive={{key:3}} >3</p>
+        {/if}
+    </div>
+    <div class="B">
+        {#if !condition}
+            <p in:send={{key:3}} out:receive={{key:3}} >3</p>
+            <p in:send={{key:1}} out:receive={{key:1}} >1</p>
+            <p in:send={{key:2}} out:receive={{key:2}} >2</p>
+        {/if}
+    </div>
+</div>
+```
