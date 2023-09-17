@@ -311,3 +311,116 @@ Innert 中 `dispatch('message')`，则该事件只会传递到 Outper 组件中�
 但是在 svelte 中情况有所不同，因为 svelte 中的执行顺序本质上不是同步的，在没有添加 `await tick()` 的时候，`handleKeydown()` 执行完成时，`text` 的值并未被应用到 DOM 上面。等到下一个 microtask 时，`text` 的值才会被应用到 DOM 上，但此时我们的 `handleKeydown()` 已经执行完了，它不会再次去重新设置 `textarea` 的 `selectionStart` 和 `selectionEnd` 属性。
 
 当我们添加了 `await tick()` 后，`handleKeydown()` 执行到 `await tick()` 会停住，等待下一个 microtask 的到来。当到达下一个 microtask 时，变更的 pending state 将会被应用到 DOM 上，所以我们的 `text` 将会被应用到 DOM 上（此时浏览器会取消选中的内容）。因为 pending state 被应用到 DOM 上了，所以 `handleKeydown()` 会接着执行 `await tick()` 后面的内容。
+
+## 状态管理
+
+基本使用：
+
+```js
+// stores.js
+import { writable } from 'svelte/store';
+
+function createCount() {
+    const { subscribe, set, update } = writable(0);
+
+    return {
+        subscribe,
+        increment: () => update(n => n + 1),
+        decrement: () => update(n => n - 1),
+        reset: () => set(0)
+    };
+}
+
+export const count = createCount();
+```
+
+```svelte
+<!-- App.svelte -->
+<script>
+    import { count } from './stores.js';
+
+</script>
+
+<h1>The count is {$count}</h1>
+
+<button on:click={count.increment}>+</button>
+<button on:click={count.decrement}>-</button>
+<button on:click={count.reset}>reset</button>
+
+```
+
+上面中，以 `$` 开头的变量会被 Svelte 认为是在状态变量，这种变量会自动帮我们订阅状态，并且当组件卸载时，会自动取消请阅。即上面代码等同于下面代码：
+
+```svelte
+<script>
+    import { count } from './stores.js';
+    import { onDestroy } from "svelte";
+
+    let count_value;
+
+    const unsubscribe = count.subscribe(value => {
+        count_value = value
+    })
+
+    onDestroy(unsubscribe);
+
+</script>
+
+<h1>The count is {count_value} </h1>
+
+<button on:click={count.increment}>+</button>
+<button on:click={count.decrement}>-</button>
+<button on:click={count.reset}>reset</button>
+```
+
+除了创建可写状态，还可以创建只读状态，当第一个订阅者订阅该 state 时，`start` 函数将会被执行。当最后一个订阅者取消订阅时，`stop` 函数将会被执行。
+
+此外，还可以对状态进行派生（derived），也就是一个状态依赖于其他状态的值。
+
+```js
+import { readable, derived } from 'svelte/store';
+
+export const time = readable(new Date(), function start(set) {
+    const interval = setInterval(() => {
+        set(new Date());
+    }, 1000);
+
+    return function stop() {
+        clearInterval(interval);
+    };
+});
+
+const start = new Date();
+
+// elapsed 状态的值依赖于 time 状态的值
+export const elapsed = derived(
+    time,
+    ($time) => Math.round(($time - start) / 1000)
+);
+```
+
+对于可写的状态变量，它也支持绑定
+
+```js
+// store.js
+import { writable, derived } from 'svelte/store';
+
+export const name = writable('world');
+
+export const greeting = derived(name, ($name) => `Hello ${$name}!`);
+
+```
+
+```svelte
+<script>
+    import { name, greeting } from './stores.js';
+</script>
+
+<h1>{$greeting}</h1>
+<input bind:value={$name} />
+
+<!-- $name += '!' 的效果等同与 name.set($name + '!')，很明显直接操作 $name 更方便，不是吗？ -->
+<button on:click={() => $name += '!'}>
+    Add exclamation mark!
+</button>
+```
