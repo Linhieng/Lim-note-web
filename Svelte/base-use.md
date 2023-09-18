@@ -865,3 +865,383 @@ action = (node: HTMLElement, parameters: any) => {
 
 - [实现 pannable](https://www.svelte.cn/tutorial/actions)
 - [显示菜单时拦截 tab 按键](https://learn.svelte.dev/tutorial/actions)
+
+## class 和 style 属性的绑定
+
+svelte 同样支持类名的绑定
+
+```svelte
+<!-- 第一个写法 -->
+<button
+    class="card {flipped ? 'flipped' : ''}"
+    on:click={() => flipped = !flipped}
+></button>
+
+<!-- 第二种写法 -->
+<button
+    class="card"
+    class:flipped={flipped}
+    on:click={() => flipped = !flipped}
+></button>
+
+<!-- 同样的，如果类名和变量名相同，则可以简写 -->
+<button
+    class="card"
+    class:flipped
+    on:click={() => flipped = !flipped}
+></button>
+
+<!-- 对于 style，使用方法也是相同的 -->
+<button
+    class="card"
+    style="transform: {flipped ? 'rotateY(0)' : ''}"
+    on:click={() => flipped = !flipped}
+></button>
+
+<button
+    class="card"
+    style:transform={flipped ? 'rotateY(0)' : ''}
+    on:click={() => flipped = !flipped}
+></button>
+
+<!-- 使用在原生 css 变量身上时，不能使用简写属性 -->
+<button
+    style:--bg={bg}
+    style:--color={color}
+    style="background-color: var(--bg); color:var(--color);"
+    on:click={() => {
+        let t = color
+        color = bg
+        bg = t
+    }}
+>
+    toggle color
+</button>
+```
+
+想要改变子组件的样式，可以借助 `:global` 来让样式传递应用到子组件上，但并不推荐这样做！
+
+```svelte
+<script>
+    import Box from './Box.svelte';
+</script>
+
+<div class="boxes">
+    <Box />
+</div>
+
+<style>
+    .boxes :global(.box) {
+        background-color: red;
+    }
+</style>
+```
+
+推荐的方式是让子组件自己选择是否接受外部提供的样式，比如下面案例中使用 css 变量来实现
+
+```svelte
+<!-- App.svelte -->
+<script>
+    import Box from './Box.svelte';
+</script>
+
+<div class="boxes">
+    <Box --color="red"/>
+</div>
+
+<!-- Box.svelte -->
+<div class="box" />
+
+<style>
+    .box {
+        width: 5em;
+        height: 5em;
+        /* 可以传递第二个参数作为默认值，这是 var 原生的功能！ */
+        background-color: var(--color, #ded);
+    }
+</style>
+```
+
+## 插槽
+
+使用很简单，直接上示例：
+
+```svelte
+<!-- App.svelte -->
+<script>
+    import Card from './Card.svelte';
+</script>
+
+<main>
+    <Card>
+        <!-- 匿名/默认插槽 -->
+        <span>Patrick BATEMAN</span>
+        <span>Vice President</span>
+
+        <!-- 具名插槽 -->
+        <span slot="telephone">212 555 6342</span>
+
+        <span slot="company">
+            Pierce &amp; Pierce
+            <small>Mergers and Aquisitions</small>
+        </span>
+
+        <span slot="address">358 Exchange Place, New York, N.Y. 100099 fax 212 555 6390 telex 10 4534</span>
+    </Card>
+</main>
+
+
+<!-- Card.svelte -->
+<div class="card">
+    <header>
+        <slot name="telephone" />
+        <slot name="company" />
+    </header>
+
+    <!-- 匿名/默认插槽 -->
+    <slot />
+
+    <!-- 插槽内的内容是默认值（fallback） -->
+    <slot name="foo"> fallback </slot>
+
+    <footer>
+        <slot name="address" />
+    </footer>
+</div>
+```
+
+子组件可以为插槽提供属性，父组件需要使用 `let:` 来获取属性，比如下面案例：
+
+```svelte
+<!-- App.svelte -->
+<script>
+    import SubCompent from "./SubCompent.svelte";
+</script>
+
+<!-- 这是 let:someProp={someProp} 的简写方式 -->
+<SubCompent let:someProp> <!-- 可以进行重命名 let:someProp={newName} -->
+    {someProp}
+</SubCompent>
+
+<!-- SubCompent.svelte -->
+<script>
+    let someProp = 'something'
+</script>
+
+<div>
+    <!-- 这是 someProp={someProp} 的简写 -->
+    <slot {someProp} />
+</div>
+```
+
+虽然当父组件没有传递插槽时，我们可以提供默认值，但更多时候我们会选择不渲染它。此时可以借助 `$$slots` 属性来判断是否有传递某个插槽
+
+```svelte
+<!-- SubComponent.svelte -->
+{#if $$slots.header}
+    <div class="header">
+        <slot name="header"/>
+    </div>
+{/if}
+```
+
+更多示例：
+
+- [颜色过滤](https://learn.svelte.dev/tutorial/slot-props)
+
+## context
+
+svelte 提供了 `setContext` 和 `getContext` 两个上下文 API，通过这两个 API 可以向全局提供任意内容，也可以从全局获取任意类型。
+
+```js
+setContext(key, context)
+
+const context = getContext(key)
+```
+
+案例：[实现 schotter - 计算机生成艺术](https://learn.svelte.dev/tutorial/context-api)
+
+## 特殊标签
+
+### `<svelte:self>`
+
+该标签能够实现对组件自身的嵌套，这在实现[显示文件树](https://learn.svelte.dev/tutorial/svelte-self)时非常有用
+
+```svelte
+<!-- Floder.svelte -->
+{#if file.files}
+    <!-- <Folder {...file} /> -->
+    <svelte:self {...file} />
+{:else}
+    <File {...file} />
+{/if}
+```
+
+注意：既然涉及到递归，那么就得确定好 base case，不然很可能无限递归。
+
+### `<svelte:component>`
+
+动态组件，通过 `this` 参数来指定具体的组件。下面代码节选自 [动态组件](https://learn.svelte.dev/tutorial/svelte-component)。
+
+```svelte
+<script>
+    import RedThing from './RedThing.svelte';
+    import GreenThing from './GreenThing.svelte';
+    import BlueThing from './BlueThing.svelte';
+
+    const options = [
+        { color: 'red', component: RedThing },
+        { color: 'green', component: GreenThing },
+        { color: 'blue', component: BlueThing }
+    ];
+
+    let selected = options[0];
+</script>
+
+<select bind:value={selected}>
+    {#each options as option}
+        <option value={option}>{option.color}</option>
+    {/each}
+</select>
+
+<svelte:component this={selected.component} />
+
+```
+
+### `<svelte:element>`
+
+类似动态组件，svelte 还提供了动态元素。下面是一个案例
+
+```svelte
+<script>
+    // 注意，marquee 标签已经被启用，这里仅做案例来演示！
+    const options = ['h1', 'h2', 'h3', 'p', 'marquee'];
+    let selected = options[0];
+</script>
+
+<select bind:value={selected}>
+    {#each options as option}
+        <option value={option}>{option}</option>
+    {/each}
+</select>
+
+<svelte:element this={selected}>
+    <h1>I'm a <code>&lt;{selected}&gt;</code> element</h1>
+</svelte:element>
+```
+
+### `<svelte:window>`
+
+虽然可以通过 js 获取 window 对象，然后进行相关操作，但 svelte 提供了 `<svelte:window/>` 标签，我们可以很方便的将它看成一个虚拟的元素，然后做一些操作。
+
+可以往 window 对象上侦听事件
+
+```svelte
+script
+<script>
+    function handleKeydown() {}
+</script>
+
+<svelte:window on:keydown={handleKeydown} />
+
+```
+
+还可以绑定以下属性：
+
+- `innerWidth`
+- `innerHeight`
+- `outerWidth`
+- `outerHeight`
+- `scrollX`: 只读
+- `scrollY`: 只读
+- `online`: 这是 `window.navigator.onLine` 的别名，表示当前网页是否能访问网络
+
+### `<svelte:body>`
+
+见名思意，这是获取 body 元素的。
+
+> This is useful with the `mouseenter` and `mouseleave` events, which don't fire on window. 暂时不清楚为什么有用。
+
+### `<svelte:document`
+
+通过该标签可以很方便的监听文件选择事件（`selectionchange`）。
+
+> This is useful with events like `selectionchange`, which doesn't fire on window. 同样的，暂时不清楚为什么有用。
+
+```svelte
+<script>
+    let selection = '';
+
+    const handleSelectionChange = (e) => selection = document.getSelection();
+</script>
+
+<svelte:document on:selectionchange={handleSelectionChange} />
+
+<h1>Select this text to fire events</h1>
+<p>Selection: {selection}</p>
+```
+
+### `<svelte:head>`
+
+通过该标签可以很方便的往 head 中插入内容。
+
+```svelte
+<svelte:head>
+    <link rel="stylesheet" href="tutorial/dark-theme.css">
+</svelte:head>
+```
+
+[它也支持变量](https://learn.svelte.dev/tutorial/svelte-head)，但是这会导致重复的网络请求，请酌情使用。
+
+### `<svelte:options>`
+
+该标签用来指定 svelte 的编译选项，一般放在开头。有以下可选项：
+
+- `immutable={true}`：告诉编辑器我们永远不会使用可变数据，因此编译器可以通过引用简单的对比检查来确定值是否已更改。
+- `immutable={false}`：默认。
+- `accessors={true}`
+- `accessors={false}`：默认。
+- `namespace="..."`
+- `customElement="..."`
+
+暂时不是特别明白，可查看 [TODO 案例](https://learn.svelte.dev/tutorial/svelte-options)
+
+### `<svelte:fragment>`
+
+类似于 vue 中的 `template` 标签，直接[查看案例](https://learn.svelte.dev/tutorial/svelte-fragment)就明白了。
+
+```svelte
+<!-- App.svelte -->
+<script>
+    import SubComponent from "./SubComponent.svelte";
+</script>
+
+<SubComponent>
+    <svelte:fragment slot="template">
+        {#each [1,2,3] as i}
+            <span>{i}</span>
+        {/each}
+    </svelte:fragment>
+</SubComponent>
+
+
+<!-- SubComponent.svelte -->
+<div>
+    <slot name="template" />
+    <!-- 最终效果该插槽会被替换成下面这样，不会有任何外部元素包裹着它
+        <span>1</span>
+        <span>2</span>
+        <span>3</span>
+     -->
+</div>
+```
+
+## Module context
+
+我们知道，一个组件可以被多次使用，每次创建该组件时，都会执行一遍它的 `script` 脚本。但在某些情况下，我们可以希望所有该组件可以共享一些变量，那么我们可以创建一个 `<script context="module">`，在该模块内的代码将只会被执行一次，换句话说，该模块中的内容对于所有该组件都是相同的。此外，该模块内还可以导出内容。
+
+具体可查看[音乐播放案例](https://learn.svelte.dev/tutorial/sharing-code)
+
+## `{@debug ...}`
+
+在 svelte 中顶层的 `debugger` 会被解析成文档文本，想要 debug 需要通过 `{@debug ...}` 标签。
