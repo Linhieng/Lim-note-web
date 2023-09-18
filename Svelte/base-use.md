@@ -140,38 +140,11 @@ Innert 中 `dispatch('message')`，则该事件只会传递到 Outper 组件中�
 <BigRedButton on:click={handleClick} />
 ```
 
-## 绑定
+## 绑定 `bind:`
 
-- `bind:`
-    - `<input bind:value={name} />`
-    - `<input type="checkbox" bind:checked={yes} />`
-    - `<select bind:value={selected}> ... </select>`
-    - `<textarea bind:value={value}></textarea>` 当绑定的值和变量名相同时，可以简写 `<textarea bind:value></textarea>`
-    - `<div contenteditable="true" bind:innerHTML={html}></div>`
-    > 在 DOM 中，一切都是字符串。即使是 `type="number"` 组件，它传递的 `event.target.value` 类型也是 `string`。
-- `bind:group` 支持绑定组
-- 对 `<audio>` 和 `<video>` 的绑定值
-    - 4 个双向绑定
-        - `currentTime` ：视频中的当前点，以秒为单位。
-        - `playbackRate` ：播放视频的倍速， 1 为 '正常'。
-        - `paused` ：暂停。
-        - `volume` ：音量，0到1之间的值。
-    - 6 个只读绑定值
-        - `duration` (readonly) ：视频的总时长，以秒为单位。
-        - `buffered` (readonly) ：数组{start, end} 的对象。
-        - `seekable` (readonly) ：同上。
-        - `played` (readonly) ：同上。
-        - `seeking` (readonly) ：布尔值。
-        - `ended` (readonly) ：布尔值。
-- 绑定尺寸
-    - `clientWidth` 只读
-    - `clientHeight` 只读
-    - `offsetWidth` 只读
-    - `offsetHeight` 只读
-- 绑定 `this`，就是绑定该元素标签
-    - `<p bind:this={pElement}></p>`
-- 绑定组件的 props
-    - `<Keypad on:submit={handleSubmit} bind:value={pin} />`
+绑定使用起来非常简单，直接查看示例就懂了
+
+在表单中的使用案例：
 
 ```svelte
 <!-- 对于 radio，最终的的值 scoops 会是一个单值 -->
@@ -187,9 +160,7 @@ Innert 中 `dispatch('message')`，则该事件只会传递到 Outper 组件中�
         {number} {number === 1 ? 'scoop' : 'scoops'}
     </label>
 {/each}
-```
 
-```svelte
 <!-- 对于 checkbox，最终的值 flavours 会是一个数组 -->
 {#each ['cookies and cream', 'mint choc chip', 'raspberry ripple'] as flavour}
     <label>
@@ -204,7 +175,6 @@ Innert 中 `dispatch('message')`，则该事件只会传递到 Outper 组件中�
     </label>
 {/each}
 
-```svelte
 <!-- select 同理，当有 multiple 时，flavours 会是一个数组，否则是一个单值 -->
 <select multiple bind:value={flavours}>
 {#each ['cookies and cream', 'mint choc chip', 'raspberry ripple'] as flavour}
@@ -213,6 +183,49 @@ Innert 中 `dispatch('message')`，则该事件只会传递到 Outper 组件中�
     </option>
 {/each}
 </select>
+```
+
+绑定还支持 `<audio>` 和 `<video>` 相关属性
+
+- 5 个双向绑定
+    - `currentTime`：媒体中的当前时间点，以秒为单位。
+    - `playbackRate`：媒体的播放倍速。
+    - `paused` ：暂停。
+    - `volume` ：音量，数值范围是 0 到 1。
+    - `muted`: 静音
+- 7 个只读绑定值
+    - `duration`：媒体的总时长，以秒为单位。
+    - `buffered`：一个数组，每个元素是 {start, end} 对象。
+    - `seekable`：格式同上。
+    - `played`：格式同上。
+    - `seeking`：布尔值。
+    - `ended`：布尔值，是否播放结束。
+    - `readyState`: 可能是数字 0, 1, 2, 3, 4 其中一个
+- 对于视频，还支持两个只读绑定值
+    - `videoWidth`
+    - `videoHeight`
+
+对于普通元素或组件的使用案例如下：
+
+```svelte
+<!-- 通过绑定 this，可以获取该节点，如果节点导出了一个函数，那么也可以通过 divElement.fn 来访问 -->
+<div bind:this={divELement}></div>
+
+<!-- 设置了 contenteditable 属性的值，支持 innerHTML 和 textContent -->
+<div bind:innerHTML={html} contenteditable />
+<div bind:textContent={content} contenteditable />
+
+<!--
+    每一个块级元素都支持 clientWidth, clientHeight, offsetWidth 和 offsetHeight 四个只读属性值的绑定
+    这四个属性是 svelte 通过特定方法计算出来的，不是所有情况下都能得到正确值。
+-->
+<div
+    bind:clientWidth bind:clientHeight
+    bind:offsetWidth bind:offsetHeight
+></div>
+
+<!-- 对于组件 props，同样也支持绑定。但应该尽量少用 -->
+<Keypad on:submit={handleSubmit} bind:value={pin} />
 ```
 
 ## 生命周期
