@@ -597,7 +597,9 @@ function fade(node, { delay = 0, duration = 400 }) {
 
 其中的 `t` 参数为 0 时表示过渡 in 的开始，out 的结束，为 1 时表示过渡 in 的结束，out 的开始。`u` 参数始终等于 `1 - t`。
 
-`css` 和 `tick` 只能返回一个，大部分情况下应该使用 `css` 属性，因为 css 最终将会创建一个 css 动画。而 `tick` 会利用 js 对 `node` 进行操作实现对应的效果（产生 effect），如果操作不当可能会导致卡顿。
+大部分情况下我们会返回 `css` 属性，而不是 `tick` 属性。因为 `tick` 对 DOM 有副作用（effect）如果操作不当可能会导致卡顿。
+
+> `tick` 是通过 JavaScript 对 DOM 元素进行操作，从而实现过渡。这意味着它会在主线程上运行，所以当处理不当时，将会阻塞主线程，或者被主线程阻塞导致过渡不生效。(block the main thread, or be blocked by the main thread.)。而 `css` 是通过创建一个 css animation 来实现过渡效果，所以无需担心阻塞问题。有关 css 动画过渡的性能问题，可参考 [MDN](https://developer.mozilla.org/en-US/docs/Web/Performance/CSS_JavaScript_animation_performance)。
 
 ```svelte
 <script>
