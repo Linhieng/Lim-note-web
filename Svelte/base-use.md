@@ -828,3 +828,27 @@ TODO: 快速双击按钮，会报错 `Uncaught (in promise) TypeError: Cannot re
     </div>
 </div>
 ```
+
+## `svelte/animate`
+
+`svelte/animate` 模块只导出 `flip` 函数，应用了 `animate:flip` 的元素，当元素位置变化时，将会有过渡效果。
+
+具体请查看[案例](https://learn.svelte.dev/tutorial/animate)
+
+## `use:action`
+
+标签支持 `use` 指令，提供一个 action 函数。
+
+```js
+action = (node: HTMLElement, parameters: any) => {
+    update?: (parameters: any) => void,
+    destroy?: () => void
+}
+```
+
+当元素创建时，action 函数将会被调用，元素将会作为 `node` 参数传递给 action 函数。
+
+参考案例：
+
+- [实现 pannable](https://www.svelte.cn/tutorial/actions)
+- [显示菜单时拦截 tab 按键](https://learn.svelte.dev/tutorial/actions)
