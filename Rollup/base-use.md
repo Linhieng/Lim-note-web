@@ -124,16 +124,7 @@ export default {
 };
 ```
 
-## 插件
-
-[插件列表](https://github.com/rollup/awesome)
-
-常用插件：
-
-- `@rollup/plugin-json` 处理 json
-- `@rollup/plugin-terser` 最小化代码
-
-### 使用案例
+## 案例：处理 json 文件
 
 1. 安装
 
@@ -188,3 +179,40 @@ export default {
     ```
 
 5. 查看 `dist/bundle.js` 会发现 json 中的 `name` 字段自动被提取出来了，这就是 Tree Shaking
+
+## 案例：打包 node_modeles 依赖
+
+说明：目前已经比较熟悉了，所以不会给出很详细的步骤。
+
+1. `npm i -D @rollup/plugin-node-resolve @rollup/plugin-commonjs rollup the-answer log-snapshot`
+
+2. 案例代码
+
+    ```js
+    // index.mjs
+    import answer from 'the-answer';
+    import a from "log-snapshot";
+    export default function () {
+        console.log('the answer is ' + answer);
+        console.log(a)
+    }
+    ```
+
+3. 配置文件
+
+    ```js
+    import { defineConfig } from "rollup";
+    import resolve from '@rollup/plugin-node-resolve';
+    import commonjs from "@rollup/plugin-commonjs";
+
+    export default defineConfig({
+        input: 'index.mjs',
+        // 不想打包的模块，需要添加到 external 中。
+        external: ['the-answer'],
+        plugins: [resolve(), commonjs()],
+        output: {
+            format: 'cjs',
+            file: 'dist.js'
+        }
+    })
+    ```
