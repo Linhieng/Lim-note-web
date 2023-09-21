@@ -23,6 +23,7 @@
     - [prettier](https://prettier.io/)
     - [Stylelint](https://stylelint.io/)
     - [markdownlint](https://github.com/DavidAnson/markdownlint)
+    - [commitlint](https://commitlint.js.org)
 - 测试
     - [Jest](https://jestjs.io/zh-Hans/)
     - [Testing Library](https://testing-library.com/)
