@@ -16,6 +16,7 @@
 - `/* eslint-disable */`
 - `/* eslint-enable */`
 - `// eslint-disable-line` 写在报错行后面
+- `/* eslint-env jest */` 指定当前文件的环境为 jest
 
 ### App.vue 文件提示 `Parsing error: '>' expected`
 
