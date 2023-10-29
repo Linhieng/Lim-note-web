@@ -4,7 +4,7 @@
 
 ## 查漏补缺
 
-- ts 支持条件语句中的 `typeof` 和 `instanceof` 进行自动类型推断
+- 类型守卫(type guard)：ts 支持条件语句中的 `typeof` 和 `instanceof` 进行自动类型推断
 
 ## 未解决的需求
 
