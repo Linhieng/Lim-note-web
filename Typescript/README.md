@@ -4,6 +4,7 @@
 
 ## 查漏补缺
 
+- The presence of input files specified on the command line results in the exclusion of tsconfig.json files. [#27379](https://github.com/microsoft/TypeScript/issues/27379)
 - 类型守卫(type guard)：ts 支持条件语句中的 `typeof` 和 `instanceof` 进行自动类型推断
 
 ## 未解决的需求
