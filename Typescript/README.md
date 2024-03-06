@@ -2,6 +2,11 @@
 
 简单的使用我已经熟悉了，所以这里暂时只记录一些遇到的案例
 
+- 注释语法
+  - `// @ts-check` 对当前文件进行 ts 类型检查，通常用于 js 文件或者被 tsconfig.json 忽略的文件
+  - `// @ts-nocheck` 不对当前文件进行 ts 类型检查
+  - `// @ts-ignore` / `// @ts-expect-error` 忽略下一行报错
+
 ## 查漏补缺
 
 - The presence of input files specified on the command line results in the exclusion of tsconfig.json files. [#27379](https://github.com/microsoft/TypeScript/issues/27379)
