@@ -1,22 +1,74 @@
 # ESLint 基本使用
 
-参考网站：
+## draft
 
-- [所有可配置项（规则）](https://eslint.org/docs/latest/rules/#possible-problems)
-- [知名 ESLint 配置](https://www.npmjs.com/search?ranking=popularity&q=keywords%3Aeslintconfig)
+非默认，但有用的规则：
 
-## 解决 eslint 提示的错误
+- require-await
+  - async 函数中必须使用 await
 
-相关注释语法：
+## 参考网站：
 
-- `// @ts-ignore` 忽略下一行报错
-- `// @ts-nocheck` 忽略后面所有报错
-- `// @ts-check`
-- `// @ts-expect-error`
-- `/* eslint-disable */`
-- `/* eslint-enable */`
-- `// eslint-disable-line` 写在报错行后面
-- `/* eslint-env jest */` 指定当前文件的环境为 jest
+- [eslint](https://eslint.org/docs/latest/use/getting-started)
+- [ts eslint](https://typescript-eslint.io/getting-started/)
+- [eslint 所有规则](https://eslint.org/docs/latest/rules/#possible-problems)
+- [eslint 推荐的规则](https://github.com/eslint/eslint/blob/main/packages/js/src/configs/eslint-recommended.js)
+- [eslint 扁平配置](https://allalmohamedlamine.medium.com/eslint-flat-config-and-new-system-an-ultimate-deep-dive-2023-46aa151cbf2b)
+- [eslint 支持的参数](https://eslint.org/docs/latest/use/command-line-interface)。
+  - 即将废弃的选项 (eslintrc Mode Only):
+    - --no-eslintrc
+    - --env
+    - --ext
+    - --resolve-plugins-relative-to
+    - --ignore-path
+
+## 注释语法（内联注释）
+
+- 指定环境
+  - `/* eslint-env jest */`
+- 块注释
+  - `/* eslint-disable */`
+  - `/* eslint-enable */`
+- 禁用/启用特定规则
+  - `/* eslint-disable no-alert, no-console */`
+  - `/* eslint-enable no-alert, no-console */`
+  - `/* eslint no-alert: "off" */`
+  - `/* eslint quotes: ["error", "double"], curly: 2 */`
+- 行尾注释
+  - `// eslint-disable-line`
+  - `/* eslint-disable-line */`
+  - `// eslint-disable-line no-alert, quotes, semi`
+  - `/* eslint-disable-line no-alert, quotes, semi */`
+
+    ```js
+    /* eslint-disable-next-line
+      no-alert,
+      quotes,
+      semi
+    */
+    ```
+
+- 下一行注释
+  - `// eslint-disable-next-line`
+  - `/* eslint-disable-next-line */`
+  - `// eslint-disable-next-line no-alert`
+  - `/* eslint-disable-next-line no-alert */`
+- 注释描述
+
+  ```js
+  // eslint-disable-next-line semi -- 因为不喜欢分号，所以禁用 semi 规则
+
+  /* eslint semi: "off", curly: "error"
+    --------
+    因为不喜欢分号，所以禁用 semi 规则 */
+
+  /* eslint-disable-next-line semi --
+   * 因为不喜欢分号，
+   * 所以禁用 semi 规则
+  **/
+  ```
+
+## 解决 eslint 提示的错误（旧）
 
 ### App.vue 文件提示 `Parsing error: '>' expected`
 
