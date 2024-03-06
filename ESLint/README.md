@@ -7,6 +7,16 @@
 - require-await
   - async 函数中必须使用 await
 
+个人习惯：
+
+```js
+const rules = {
+  'semi': ['error', 'never'],
+  'quotes': ['error', 'single'],
+  'comma-dangle': ['error', 'always-multiline'],
+},
+```
+
 ## 参考网站：
 
 - [eslint](https://eslint.org/docs/latest/use/getting-started)
@@ -14,18 +24,18 @@
 - [eslint 所有规则](https://eslint.org/docs/latest/rules/#possible-problems)
 - [eslint 推荐的规则](https://github.com/eslint/eslint/blob/main/packages/js/src/configs/eslint-recommended.js)
 - [eslint 扁平配置](https://allalmohamedlamine.medium.com/eslint-flat-config-and-new-system-an-ultimate-deep-dive-2023-46aa151cbf2b)
-- [eslint 支持的参数](https://eslint.org/docs/latest/use/command-line-interface)。
+- [eslint 支持的参数](https://eslint.org/docs/latest/use/command-line-interface)
+- [eslint 配置规则、注释语法](https://zh-hans.eslint.org/docs/latest/use/configure/rules)
   - 即将废弃的选项 (eslintrc Mode Only):
     - --no-eslintrc
     - --env
     - --ext
     - --resolve-plugins-relative-to
     - --ignore-path
+    - `/* eslint-env jest */`
 
 ## 注释语法（内联注释）
 
-- 指定环境
-  - `/* eslint-env jest */`
 - 块注释
   - `/* eslint-disable */`
   - `/* eslint-enable */`
@@ -39,6 +49,11 @@
   - `/* eslint-disable-line */`
   - `// eslint-disable-line no-alert, quotes, semi`
   - `/* eslint-disable-line no-alert, quotes, semi */`
+- 下一行注释
+  - `// eslint-disable-next-line`
+  - `/* eslint-disable-next-line */`
+  - `// eslint-disable-next-line no-alert`
+  - `/* eslint-disable-next-line no-alert */`
 
     ```js
     /* eslint-disable-next-line
@@ -48,11 +63,6 @@
     */
     ```
 
-- 下一行注释
-  - `// eslint-disable-next-line`
-  - `/* eslint-disable-next-line */`
-  - `// eslint-disable-next-line no-alert`
-  - `/* eslint-disable-next-line no-alert */`
 - 注释描述
 
   ```js
