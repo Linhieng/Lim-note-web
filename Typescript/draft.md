@@ -3,10 +3,10 @@
 
 ## 工具类型
 
-| Utility Types   | desc                                                                                                                                        |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Partial<Type>` | Constructs a type with all properties of Type set to optional. This utility will return a type that represents all subsets of a given type. |
-|                 |                                                                                                                                             |
+| Utility Types        | desc                                                                                                                                                                 |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Partial<Type>`      | Constructs a type with all properties of Type set to optional. This utility will return a type that represents all subsets of a given type.                          |
+| `Record<Keys, Type>` | Constructs an object type whose property keys are Keys and whose property values are Type. This utility can be used to map the properties of a type to another type. |
 
 
 ## 配置文件 compilerOptions
