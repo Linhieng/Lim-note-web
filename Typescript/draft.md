@@ -39,6 +39,80 @@
   - 此 ES 指的是 js 语言规范，而不是模块中的 ES 模块！
 
 
+## 声明文件的两种状态
+
+ts 有两种模块声明文件：
+
+- local (normal modules)
+- ambient (global)
+
+只有当声明文件中没有使用任何 import 时，该声明文件被认为是 ambient，此时 jsDoc 中可以获取类型注释。当有时候我们需要在声明文件中使用其他声明文件的类型，就不得不用到 import，而这就会导致声明文件变成本地模块，使用时必须导入。这个问题在 TS2.9 版本中得到了解决 —— 使用 `import()` 来获取类型声明。
+
+下面是一个案例，已经对实际项目代码进行抽离，bar 代表的是外部模块提供的类型。
+
+情况一：简单情况
+
+```ts
+// foo.d.ts
+type Foo = number
+```
+
+```js
+/**
+ * @type {Foo} - 此时可以直接获得 Foo 类型
+ */
+let foo
+```
+
+情况二：复杂情况
+
+```ts
+// bar.d.ts
+export type Bar = number
+```
+
+```ts
+// foo.d.ts
+import type { Bar } from "./bar"
+type Foo = Bar
+```
+
+```js
+/**
+ * @type {Foo} - 此时无法解析类型，vscode 中鼠标放在这里会提示 type Foo = /*unresolved*/ any
+ */
+let foo
+
+
+// 需要导入才可以解决
+/**
+ * @type {import("./types").Foo} - 现在就可以获取类型提示了
+ */
+let foo
+```
+
+情况三：使用 `import()` 解决情况二的痛点
+
+```ts
+// bar.d.ts
+export type Bar = number
+```
+
+```ts
+// foo.d.ts
+type Foo = import('./bar').Bar
+```
+
+```js
+/**
+ * @type {Foo} - 此时就又可以直接获取到类型了
+ */
+let foo
+```
+
+
+参考 [import-class-in-definition-file-d-ts](https://stackoverflow.com/questions/39040108/import-class-in-definition-file-d-ts)
+
 ## 声明文件
 
 ### exports 导出类型
