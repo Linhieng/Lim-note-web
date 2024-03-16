@@ -156,13 +156,11 @@ const proxy = new Proxy(obj, {
 for (let key in proxy) {
     console.log(key) // 只输出 'b' 因为只有 b 是可枚举的
 }
-console.log(Reflect.ownKeys(obj)) // [ 'a', 'b', 'c', 'd', Symbol(a symbol) ]
-console.log(Reflect.ownKeys(proxy)) // [ 'b', 'c', 'd', Symbol(a symbol) ]
-console.log(f(Object.keys(proxy))) // [ 'b' ]
-console.log(f(Object.getOwnPropertyNames(proxy))) // [ 'b', 'c', 'd' ]
-console.log(f(Object.getOwnPropertySymbols(proxy))) // [ Symbol(a symbol) ]
-
-function f(iterator) { const list = []; for (const i of iterator) { list.push(i) }; return list }
+console.log(Reflect.ownKeys(obj))   // [ 'a', 'b', 'c', 'd', Symbol(a symbol) ]
+console.log(Reflect.ownKeys(proxy)) // [      'b', 'c', 'd', Symbol(a symbol) ]
+console.log(Object.keys(proxy))     // [ 'b' ]
+console.log(Object.getOwnPropertyNames(proxy)) // [ 'b', 'c', 'd', 'other' ]
+console.log(Object.getOwnPropertySymbols(proxy)) // [ Symbol(a symbol) ]
 
 ```
 
