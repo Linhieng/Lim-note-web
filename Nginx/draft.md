@@ -4,33 +4,33 @@
 
 进入 https://nginx.org/en/download.html
 
-下载 Mainline version 版本
+下载 Mainline version 版本，然后解压
 
-解压到 C: 目录
+> 注意：不管配不配置环境变量，对 nginx 的所有操作都应该在对应文件夹中。
 
-（不管配不配置环境变量，对 nginx 的所有操作都应该在对应文件夹中）
+```powershell
+[Environment]::SetEnvironmentVariable("NGINX_HOME", "C:\nginx-1.25.4\", "User")
+# 添加 nginx 目录为环境变量，方便以后进入该文件夹
 
-
-```sh
-cd C:\nginx-1.25.4\
+cd $env:NGINX_HOME
 # 一定要先进入文件
 
 start nginx
 # 启动 nginx
 
-./nginx.exe -s reload
+nginx -t
+# 测试配置文件是否有效
+
+nginx -s reload
 # 应用新的配置文件（平滑关闭旧进程）
 
-./nginx.exe -s quit
+nginx -s quit
 # 平滑关闭 graceful shutdown
-./nginx.exe -s stop
+nginx -s stop
 # 快速关闭 fast shutdown
-
-./nginx.exe -t
-# 测试配置文件
 ```
 
-其他命令
+其他辅助命令
 
 ```sh
 tasklist | findstr "nginx.exe"
