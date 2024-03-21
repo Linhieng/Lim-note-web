@@ -11,9 +11,29 @@ sass 语法更简洁，可以省略大括号、分号。类似于 python。
   - `random()`
   - `floor()`
 
+## draft
+
+sass 导入 mixin
+  需要使用 as *
+    @use  './mixin' as *;
+  或者使用
+    @import './mixin';
+  可以统一在 index.scss 中使用 @import
+
+
 ## 案例
 
 ```scss
+// 封装媒体查询
+@mixin sm {
+    @media screen and (max-height: 799px) { // 媒体查询可不止能查宽度
+        @content;
+    }
+}
+
+
+
+
 // 定义：
 @mixin important-text {
     color: red;
