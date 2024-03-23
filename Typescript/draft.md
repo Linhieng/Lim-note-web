@@ -1,5 +1,49 @@
 # 草稿
 
+## 让一个字段的类型，由另外一个字段的类型决定
+
+文章 [掘金](https://juejin.cn/post/7349107838931435530)
+
+案例一
+
+```ts
+enum ShapeType {
+    Square = 1,
+    Circle = 2
+}
+interface Square {
+    size: number;
+}
+interface Circle {
+    radius: number;
+}
+
+type MutableRecord<U> = {
+    [SubType in keyof U]: {
+        type: SubType;
+        data: U[SubType]
+    };
+}[keyof U];
+
+type Shape = MutableRecord<{
+    [ShapeType.Square]: Square;
+    [ShapeType.Circle]: Circle;
+}>;
+
+
+const circle: Shape = {
+    type: ShapeType.Circle,
+    data: {
+        // 这里只出现 radius
+    }
+};
+const square: Shape = {
+    type: ShapeType.Square,
+    data: {
+        // 这里只出现 size
+    }
+};
+```
 
 ## 工具类型
 
