@@ -208,7 +208,7 @@ app.use((err, req, res, next) => {
 
 | 方法                         | 描述                            |
 | ---------------------------- | ------------------------------- |
-| `res.sendStatus(statusCode)` | 设置响应码                      |
+| `res.sendStatus(statusCode)` | 发送对应响应码以及默认消息      |
 | `res.send(any)`              | 发送任意类型响应体              |
 | `res.json(obj)`              | 发送 JSON 格式响应体            |
 | `res.jsonp(obj)`             | 发送 JSONP 格式响应体           |
@@ -224,6 +224,7 @@ app.use((err, req, res, next) => {
 | ----------------- | ---------------- |
 | `res.cookie()`    | 设置 cookie      |
 | `res.setHeader()` | 添加一条响应标头 |
+| `res.status()`    | 设置响应码       |
 
 ### request 对象
 
@@ -239,7 +240,7 @@ request 通常用于获取用户传递数据，所以常用的属性和方法有
 | `req.file`     | 需要使用中间件（如 [multer]）进行填充                                    |
 | `req.files`    | 需要使用中间件（如 [multer]）进行填充                                    |
 | `req.ip`       | 获取请求 ip                                                              |
-| `req.header()` | 获取特定请求标头                                                                         |
+| `req.header()` | 获取特定请求标头                                                         |
 
 > 特殊地，可以通过 req.rawHeaders 获取所有请求标头
 
