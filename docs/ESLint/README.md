@@ -82,7 +82,7 @@ const rules = {
 
 ### App.vue 文件提示 `Parsing error: '>' expected`
 
-```cjs
+```js
 module.exports = {
   // 之前:
   'parser': '@typescript-eslint/parser',
@@ -93,7 +93,7 @@ module.exports = {
 
 ### HelloWorld.vue 文件提示 `Parsing error: Unexpected token )`
 
-```cjs
+```js
 // 在 parserOptions 参数中添加 ts 解析:
 module.exports = {
   'parserOptions': {
@@ -104,7 +104,7 @@ module.exports = {
 
 ### `.eslintrc.cjs` 提示 `'module' is not defined.eslintno-undef`
 
-```cjs
+```js
 module.exports = {
   'env': {
     'node': true,

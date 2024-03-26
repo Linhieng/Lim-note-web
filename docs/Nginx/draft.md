@@ -62,7 +62,7 @@ $ .\mkcert-v1.4.4-windows-amd64.exe localhost 127.0.0.1
 
 配置 nginx:
 
-```conf
+```nginx
 # C:\nginx-1.25.4\conf\nginx.conf
 events {
     worker_connections  1024;

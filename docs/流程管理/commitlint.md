@@ -2,7 +2,7 @@
 
 commit 的格式一般是：
 
-```syntax
+```
 type(scope): subject
 
 description(body).

@@ -108,7 +108,7 @@ Prettier 版本始终会更改样式，所以控制 prettier 的版本比使用 
 
 获取路径
 
-```mjs
+```js
 import { fileURLToPath } from 'node:url'
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 console.log(__dirname)

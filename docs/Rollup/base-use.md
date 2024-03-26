@@ -23,7 +23,7 @@ rollup 默认只会解析相对路径的模块。对于 `import { workspace } fr
 
 ## 配置文件
 
-```mjs
+```js
 // rollup.config.js
 
 // 可以是数组（即多个输入源）

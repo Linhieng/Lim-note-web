@@ -254,7 +254,7 @@ app.enable('trust proxy')
 
 此外，设置反向代理时，也要让它将实际的 ip 转发给 node。比如 nginx 中需要配置：
 
-```conf
+```nginx
 location / {
   # $proxy_add_x_forwarded_for 和 $remote_addr 都是实际 ip
   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
