@@ -73,7 +73,8 @@ export default defineConfig({
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: '主页', link: '/' },
-      { text: '笔记', link: '/README' }
+      { text: 'web 笔记', link: '/README' },
+      { text: 'vscode 笔记', link: 'https://blog.linhieng.com/Lim-note-vscode' },
     ],
 
     sidebar,
