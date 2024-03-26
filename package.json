@@ -3,7 +3,7 @@
     "vitepress": "^1.0.1"
   },
   "scripts": {
-    "build": "vitepress build --outDir dist",
+    "build": "vitepress build --outDir dist --base /Lim-note-web/",
     "docs:dev": "vitepress dev",
     "docs:build": "vitepress build",
     "docs:preview": "vitepress preview"
