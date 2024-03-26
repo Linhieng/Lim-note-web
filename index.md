@@ -3,23 +3,16 @@
 layout: home
 
 hero:
-  name: "My Awesome Project"
-  text: "A VitePress Site"
-  tagline: My great project tagline
+  name: "linhieng 的 web 笔记"
   actions:
     - theme: brand
-      text: Markdown Examples
-      link: /markdown-examples
+      text: 查看我的 web 笔记
+      link: /README
     - theme: alt
-      text: API Examples
-      link: /api-examples
+      text: 查看我的个人网站
+      link: https://oonoo.cn
 
 features:
-  - title: Feature A
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feature B
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feature C
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
+  - title: 长期更新！
+    details: 本笔记将会长期更新，建议收藏！
 ---
-
