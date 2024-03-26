@@ -3,6 +3,7 @@
     "vitepress": "^1.0.1"
   },
   "scripts": {
+    "build": "vitepress build --outDir dist",
     "docs:dev": "vitepress dev",
     "docs:build": "vitepress build",
     "docs:preview": "vitepress preview"

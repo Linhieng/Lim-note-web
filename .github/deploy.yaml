@@ -1,0 +1,31 @@
+name: Build and Push
+
+on:
+  push:
+    branches:
+      - vitepress
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    permissions: # PUSH 权限要求
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/Hydrogen'
+      - run: npm ci
+      - run: npm run build
+      - run: |
+          git config user.name github-action
+          git config user.email github-action@github.com
+      - run: git rm -r --ignore-unmatch -- *
+      - run: git rm -r .github/*
+      - run: mv dist/* .
+      - run: git add .
+      - run: git commit -m "github action auto push"
+      - run: git switch -c dist
+      - run: git push -f origin dist
+        env: # PUSH 权限要求
+          github_token: ${{ secrets.PUSH_KEY }}
