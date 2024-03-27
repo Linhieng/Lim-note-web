@@ -1,5 +1,87 @@
 # 草稿
 
+## 使用 as const 收缩类型
+
+narrowing types using 'as const'
+
+```ts
+const data1 = {
+  name: 'Alan'  // 此时会推断 string 类型，因为对象的字段容易被改变
+}
+
+const data2 = {
+  name: 'Alan'  // 此时会推断字符串 Alan
+} as const
+```
+
+## 类型断言
+
+```ts
+function assertString(someThing: any): asserts someThing is string {
+    if (!(typeof someThing === 'string')) {
+        throw new Error('Not a String type!')
+    }
+}
+let x: any
+assertString(x)
+x. // 获得类型 string
+```
+
+## 类型守卫、鸭子类型
+
+使用一个函数判断类型时，ts 并不会自动推断类型：
+
+```ts
+function isString(x: any) {
+    if (typeof x === 'string') {
+        return true
+    } else {
+        return false
+    }
+}
+let abc: any
+if (isString(abc)) {
+    abc. // 此时无法获得类型提示
+}
+```
+
+这个时候就需要类型守卫
+
+```ts
+function isString(x: any): x is string {
+    if (typeof x === 'string') {
+        return true
+    } else {
+        return false
+    }
+}
+let abc: any
+if (isString(abc)) {
+    abc. // 获得类型提示
+}
+```
+
+不过，新版本的 ts (5.5) 即将支持自动推断类型守卫，详见 [#57465](https://github.com/microsoft/TypeScript/pull/57465)。这意味这前面的第一个案例可以直接生效。甚至可以简写成：
+
+```ts
+const isString = (x: any) => typeof x === 'string'
+let abc: any
+if (isString(abc)) {
+    abc. // 获取类型提示
+}
+```
+
+## noImplicitThis
+
+```ts
+const obj = {
+    name: 'obj',
+    getName() {
+      return this. // 设置 noImplicitThis 为 true 时这里会获得类型提示
+    }
+}
+```
+
 ## 让一个字段的类型，由另外一个字段的类型决定
 
 文章 [掘金](https://juejin.cn/post/7349107838931435530)
