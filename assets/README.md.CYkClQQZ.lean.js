@@ -1,0 +1,1 @@
+import{_ as s,c as i,o as a,a2 as e}from"./chunks/framework.pPPfHAGV.js";const c=JSON.parse('{"title":"WEB 开发","description":"","frontmatter":{},"headers":[],"relativePath":"README.md","filePath":"README.md"}'),t={name:"README.md"},l=e("",12),n=[l];function r(h,p,k,o,d,g){return a(),i("div",null,n)}const u=s(t,[["render",r]]);export{c as __pageData,u as default};
